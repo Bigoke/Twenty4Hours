@@ -73,6 +73,7 @@ class AlarmService : Service() {
         const val ACTION_RING_TIMER = "com.bigoke.twenty4hours.RING_TIMER"
         const val ACTION_SNOOZE = "com.bigoke.twenty4hours.SNOOZE"
         const val ACTION_STOP = "com.bigoke.twenty4hours.STOP"
+        const val ACTION_RESTART = "com.bigoke.twenty4hours.RESTART"
         const val ACTION_TEST = "com.bigoke.twenty4hours.TEST"
         const val ACTION_RING_TRIP = "com.bigoke.twenty4hours.RING_TRIP"
         const val EXTRA_TRIP_NAME = "trip_name"
@@ -124,6 +125,7 @@ class AlarmService : Service() {
                 null, true, 0L
             )
             ACTION_SNOOZE -> snooze()
+            ACTION_RESTART -> restart()
             ACTION_STOP -> stopCycle()
             else -> if (RingState.current.value == null) silenceAndStop()
         }
@@ -194,6 +196,15 @@ class AlarmService : Service() {
         try {
             startActivity(RingActivity.intent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {}
+    }
+
+    /** Timer finished: run it again for its full length. */
+    private fun restart() {
+        val info = RingState.current.value
+        if (info?.kind == RingKind.TIMER) {
+            TimerStore.get(info.id)?.let { TimerOps.restartFor(this, it.id, it.durationMs) }
+        }
+        silenceAndStop()
     }
 
     private fun snooze() {
@@ -350,6 +361,7 @@ class AlarmService : Service() {
             .setSilent(true)
             .setContentIntent(full)
             .setFullScreenIntent(full, true)
+            .apply { if (info.kind == RingKind.TIMER) addAction(0, "Restart", servicePending(ACTION_RESTART, 12)) }
             .addAction(0, snoozeLabel, servicePending(ACTION_SNOOZE, 10))
         // With a math challenge, stopping has to happen on the ring screen.
         if (info.challenge == Challenge.NONE) b.addAction(0, "Stop", servicePending(ACTION_STOP, 11))

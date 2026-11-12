@@ -77,6 +77,7 @@ import com.bigoke.twenty4hours.data.Challenge
 import com.bigoke.twenty4hours.data.Stores
 import com.bigoke.twenty4hours.data.VolumeAction
 import com.bigoke.twenty4hours.ui.OnAmber
+import com.bigoke.twenty4hours.ui.PillButton
 import com.bigoke.twenty4hours.ui.T24
 import com.bigoke.twenty4hours.ui.Twenty4Theme
 import com.bigoke.twenty4hours.ui.drawFace
@@ -122,6 +123,7 @@ class RingActivity : ComponentActivity() {
                     i != null -> RingScreen(
                         info = i,
                         onSnooze = { AlarmService.send(this, AlarmService.ACTION_SNOOZE) },
+                        onRestart = { AlarmService.send(this, AlarmService.ACTION_RESTART) },
                         onStop = { AlarmService.send(this, AlarmService.ACTION_STOP) },
                     )
                     sum != null -> Box(Modifier.fillMaxSize().background(T24.Bg).safeDrawingPadding()) {
@@ -149,7 +151,7 @@ class RingActivity : ComponentActivity() {
 }
 
 @Composable
-internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit) {
+internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit, onRestart: () -> Unit = {}) {
     val now by produceState(LocalTime.now()) {
         while (true) { value = LocalTime.now(); delay(1000) }
     }
@@ -253,24 +255,38 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
                         }
                     }
 
-                    SlideToAct(
-                        leftText = snoozeText,
-                        rightText = when (info.challenge) {
-                            Challenge.NONE -> "Stop"
-                            Challenge.MATH -> "Solve to stop"
-                            Challenge.QR -> "Scan to stop"
-                            Challenge.SHAKE -> "Shake to stop"
-                            Challenge.STEPS -> "Walk to stop"
-                        },
-                        onLeft = onSnooze,
-                        onRight = { if (info.challenge != Challenge.NONE) challengeOpen = info.challenge else onStop() },
-                    )
-                    Spacer(Modifier.height(14.dp))
-                    Text("Slide the puck · volume keys ${
-                        when (AppSettings.value.volumeButtons) {
-                            VolumeAction.NOTHING -> "do nothing"; VolumeAction.SNOOZE -> "snooze"; VolumeAction.STOP -> "stop"
+                    if (isTimer) {
+                        // Time's up: two clear buttons instead of the slider
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                            PillButton("Restart", Modifier.weight(1f), height = 64.dp, onClick = onRestart)
+                            PillButton("Stop", Modifier.weight(1f), primary = true, height = 64.dp, onClick = onStop)
                         }
-                    }", color = T24.Faint, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            "+1 min", color = T24.AmberLight, fontSize = 15.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onSnooze)
+                                .padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    } else {
+                        SlideToAct(
+                            leftText = snoozeText,
+                            rightText = when (info.challenge) {
+                                Challenge.NONE -> "Stop"
+                                Challenge.MATH -> "Solve to stop"
+                                Challenge.QR -> "Scan to stop"
+                                Challenge.SHAKE -> "Shake to stop"
+                                Challenge.STEPS -> "Walk to stop"
+                            },
+                            onLeft = onSnooze,
+                            onRight = { if (info.challenge != Challenge.NONE) challengeOpen = info.challenge else onStop() },
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Text("Slide the puck · volume keys ${
+                            when (AppSettings.value.volumeButtons) {
+                                VolumeAction.NOTHING -> "do nothing"; VolumeAction.SNOOZE -> "snooze"; VolumeAction.STOP -> "stop"
+                            }
+                        }", color = T24.Faint, fontSize = 12.sp, textAlign = TextAlign.Center)
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
             }
