@@ -27,6 +27,14 @@ jobs:
           set -o pipefail
           ./gradlew testDebugUnitTest --tests '*ScreenshotTest*' 2>&1 | tee test.log
 
+      - name: Debug outputs
+        if: always()
+        run: |
+          echo "::notice::pngs: $(find . -name '*.png' -newer gradlew -not -path './.git/*' | grep -v '/res/' | head -5 | tr '\n' ' ')"
+          echo "::notice::results: $(ls app/build/test-results/testDebugUnitTest/ 2>&1 | head -3 | tr '\n' ' ')"
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do echo "::notice::$(grep -o '<testsuite [^>]*>' $f | head -1)"; grep -o 'roborazzi[^<]*' $f | head -3 | while read l; do echo "::notice::$l"; done; done
+          grep -i "roborazzi\|skipped" test.log | head -5 | while read l; do echo "::notice::$l"; done
+
       - name: Report errors
         if: failure()
         run: |
