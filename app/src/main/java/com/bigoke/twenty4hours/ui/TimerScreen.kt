@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -165,7 +166,7 @@ fun TimerScreen(contentPadding: PaddingValues) {
                 item {
                     Box(
                         Modifier
-                            .size(width = 96.dp, height = 112.dp)
+                            .size(width = 100.dp, height = 112.dp)
                             .clip(RoundedCornerShape(22.dp))
                             .border(1.dp, T24.Line, RoundedCornerShape(22.dp))
                             .clickable { TimerStore.add(5 * 60_000L) },
@@ -326,7 +327,8 @@ private fun TimerCard(t: TimerItem, now: Long, selected: Boolean, onClick: () ->
     val shape = RoundedCornerShape(22.dp)
     Column(
         Modifier
-            .size(width = 96.dp, height = 112.dp)
+            .width(100.dp)
+            .heightIn(min = 112.dp)
             .clip(shape)
             .background(if (selected) T24.SurfaceHigh else T24.Surface)
             .border(1.dp, if (selected) T24.Amber.copy(alpha = 0.6f) else T24.Line, shape)

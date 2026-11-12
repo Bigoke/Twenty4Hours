@@ -61,11 +61,12 @@ import kotlin.math.roundToInt
 private class DialGeo(w: Float, h: Float, d: Density) {
     val c = Offset(w / 2f, h / 2f)
     val s = min(w, h)
-    val r = s * 0.305f
-    val trackW = s * 0.085f
+    // Ring kept a little smaller than the screen so alarm names have room around it
+    val r = s * 0.268f
+    val trackW = s * 0.08f
     val ro = r + trackW * 0.95f
-    val rh = ro + with(d) { 12.dp.toPx() }
-    val rl = rh + with(d) { 14.dp.toPx() }
+    val rh = ro + with(d) { 11.dp.toPx() }
+    val rl = ro + with(d) { 7.dp.toPx() }
     val puckL = trackW * 1.22f
     val puckW = trackW * 1.0f
 
@@ -176,9 +177,9 @@ fun Dial(
         }
 
         // Centre card — sized from the dial, not the system font size, so it always fits inside the ring
-        val k = side.value / 400f
+        val k = side.value / 440f
         Column(
-            Modifier.align(Alignment.Center).width(side * 0.44f),
+            Modifier.align(Alignment.Center).width(side * 0.38f),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             when {
@@ -363,10 +364,10 @@ private fun DrawScope.drawLabels(
         }
     }.sortedBy { it.minute }
 
-    val tStyleBase = TextStyle(fontSize = (13 * k).dp.toSp(), fontWeight = FontWeight.Medium)
-    val sStyle = TextStyle(color = T24.Muted, fontSize = (12 * k).dp.toSp())
+    val tStyleBase = TextStyle(fontSize = (12.5f * k).dp.toSp(), fontWeight = FontWeight.Medium, lineHeight = (15 * k).dp.toSp())
+    val sStyle = TextStyle(color = T24.Muted, fontSize = (11.5f * k).dp.toSp(), lineHeight = (14 * k).dp.toSp())
     val edge = 4.dp.toPx()
-    val maxLabel = 118.dp.toPx() * k
+    val maxLabel = 104.dp.toPx() * k
 
     val placed = mutableListOf<Rect>()
     val gap = 2.dp.toPx()
@@ -385,7 +386,7 @@ private fun DrawScope.drawLabels(
 
         val tr: TextLayoutResult = measurer.measure(
             lb.title, tStyleBase.copy(color = lb.titleColor),
-            overflow = TextOverflow.Ellipsis, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, maxLines = 2,
             constraints = Constraints(maxWidth = room.toInt())
         )
         val sr: TextLayoutResult = measurer.measure(

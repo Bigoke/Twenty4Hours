@@ -1,6 +1,9 @@
 package com.bigoke.twenty4hours.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -41,6 +44,18 @@ fun Twenty4Theme(content: @Composable () -> Unit) {
             surfaceContainerLow = T24.Surface,
             outline = T24.Line,
         ),
+        typography = typography(),
         content = content
+    )
+}
+
+/** Line heights follow each text's own size, so large system fonts don't stretch rows apart. */
+private fun typography(): Typography {
+    val t = Typography()
+    fun TextStyle.loose() = copy(lineHeight = TextUnit.Unspecified)
+    return t.copy(
+        bodyLarge = t.bodyLarge.loose(), bodyMedium = t.bodyMedium.loose(), bodySmall = t.bodySmall.loose(),
+        labelLarge = t.labelLarge.loose(), labelMedium = t.labelMedium.loose(), labelSmall = t.labelSmall.loose(),
+        titleLarge = t.titleLarge.loose(), titleMedium = t.titleMedium.loose(), titleSmall = t.titleSmall.loose(),
     )
 }
