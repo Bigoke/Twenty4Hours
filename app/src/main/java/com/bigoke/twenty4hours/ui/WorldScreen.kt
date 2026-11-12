@@ -182,12 +182,15 @@ private fun CityRow(zone: String, t: ZonedDateTime, ref: ZonedDateTime, onClick:
         MiniDayDial(t.hour * 60 + t.minute, Modifier.size(52.dp))
         Spacer(Modifier.width(16.dp))
         Column(Modifier.weight(1f)) {
-            Text(cityOf(zone), color = T24.Text, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-            Text("$dayText · $diffText", color = T24.Muted, fontSize = 13.sp, maxLines = 1)
+            Text(cityOf(zone), color = T24.Text, fontSize = 18.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text("$dayText · $diffText", color = T24.Muted, fontSize = 13.sp, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
+        Spacer(Modifier.width(8.dp))
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                "%02d:%02d".format(t.hour, t.minute),
+                "%02d:%02d".format(t.hour, t.minute), maxLines = 1,
                 color = if (isDay) T24.Text else T24.Text.copy(alpha = 0.75f),
                 fontSize = 30.sp, fontWeight = FontWeight.Light
             )

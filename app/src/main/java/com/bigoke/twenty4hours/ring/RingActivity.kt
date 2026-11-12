@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +64,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +78,7 @@ import com.bigoke.twenty4hours.ui.T24
 import com.bigoke.twenty4hours.ui.Twenty4Theme
 import com.bigoke.twenty4hours.ui.drawFace
 import com.bigoke.twenty4hours.ui.drawKnob
+import com.bigoke.twenty4hours.ui.fixedSp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalTime
@@ -176,9 +180,13 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
                     )
                     Text(
                         if (isTimer) info.timeText else "%02d:%02d".format(now.hour, now.minute),
-                        color = T24.Text, fontSize = 84.sp, fontWeight = FontWeight.Light
+                        color = T24.Text, fontWeight = FontWeight.Light, maxLines = 1,
+                        fontSize = (if ((if (isTimer) info.timeText else "00:00").length > 5) 64 else 84).dp.fixedSp()
                     )
-                    Text(info.label, color = T24.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        info.label, color = T24.Text, fontSize = 22.sp, fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis
+                    )
                     if (info.rings > 1) {
                         Spacer(Modifier.height(6.dp))
                         Text(
@@ -216,7 +224,7 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
                         when (AppSettings.value.volumeButtons) {
                             VolumeAction.NOTHING -> "do nothing"; VolumeAction.SNOOZE -> "snooze"; VolumeAction.STOP -> "stop"
                         }
-                    }", color = T24.Faint, fontSize = 12.sp)
+                    }", color = T24.Faint, fontSize = 12.sp, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(8.dp))
                 }
             }
@@ -243,15 +251,26 @@ private fun SlideToAct(leftText: String, rightText: String, onLeft: () -> Unit, 
         val maxPx = with(density) { ((maxWidth - puck) / 2 - 8.dp).toPx() }
         val frac = (offset.value / maxPx).coerceIn(-1f, 1f)
 
+        // Each label gets its own half, clear of the puck in the middle
         Row(
-            Modifier.fillMaxSize().padding(horizontal = 26.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxSize().padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("‹  $leftText", color = T24.Cream, fontSize = 15.sp,
-                modifier = Modifier.alpha(0.55f + 0.45f * (-frac).coerceAtLeast(0f)))
-            Text("$rightText  ›", color = T24.AmberLight, fontSize = 15.sp, fontWeight = FontWeight.Medium,
-                modifier = Modifier.alpha(0.55f + 0.45f * frac.coerceAtLeast(0f)))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    "‹ $leftText", color = T24.Cream, fontSize = 15.dp.fixedSp(), maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(0.55f + 0.45f * (-frac).coerceAtLeast(0f))
+                )
+            }
+            Spacer(Modifier.width(puck + 8.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Text(
+                    "$rightText ›", color = T24.AmberLight, fontSize = 15.dp.fixedSp(), fontWeight = FontWeight.Medium,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.alpha(0.55f + 0.45f * frac.coerceAtLeast(0f))
+                )
+            }
         }
         Box(
             Modifier

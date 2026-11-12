@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Snackbar
@@ -80,6 +81,7 @@ import com.bigoke.twenty4hours.ui.T24
 import com.bigoke.twenty4hours.ui.TimerScreen
 import com.bigoke.twenty4hours.ui.Twenty4Theme
 import com.bigoke.twenty4hours.ui.WorldScreen
+import com.bigoke.twenty4hours.ui.fixedSp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -173,7 +175,8 @@ internal fun AppRoot(
     BackHandler(enabled = !showSettings && tab != Tab.ALARMS) { tab = Tab.ALARMS }
 
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-    val listPadding = PaddingValues(top = topInset, bottom = 140.dp)
+    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val listPadding = PaddingValues(top = topInset, bottom = 120.dp + bottomInset)
 
     Box(Modifier.fillMaxSize().background(T24.Bg)) {
         AnimatedContent(
@@ -205,30 +208,18 @@ internal fun AppRoot(
             }
         }
 
-        // Floating add button (alarms + world)
-        AnimatedVisibility(
-            visible = tab == Tab.ALARMS || tab == Tab.WORLD,
-            enter = scaleIn() + fadeIn(),
-            exit = scaleOut() + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(end = 22.dp, bottom = 96.dp)
-        ) {
-            Box(
-                Modifier
-                    .shadow(16.dp, CircleShape, ambientColor = T24.Amber, spotColor = T24.Amber)
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(Brush.verticalGradient(listOf(T24.AmberLight, T24.Amber)))
-                    .clickable { if (tab == Tab.WORLD) cityAdds++ else alarmAdds++ },
-                contentAlignment = Alignment.Center
-            ) { GlyphIcon(Glyph.PLUS, OnAmber, 26.dp) }
-        }
+        // Soft fade behind the bottom bar so list text never sits under it unreadably
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(110.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
+                .background(Brush.verticalGradient(listOf(T24.Bg.copy(alpha = 0f), T24.Bg.copy(alpha = 0.92f), T24.Bg)))
+        )
 
         SnackbarHost(
             snackbar,
-            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 96.dp, start = 16.dp, end = 16.dp)
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 88.dp, start = 16.dp, end = 16.dp)
         ) { data ->
             Snackbar(
                 snackbarData = data,
@@ -239,11 +230,31 @@ internal fun AppRoot(
             )
         }
 
-        TabBar(
-            current = tab,
-            onSelect = { tab = it },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp)
-        )
+        // Bottom bar: tabs, plus an add button beside them (never on top of content)
+        Row(
+            Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TabBar(current = tab, onSelect = { tab = it })
+            AnimatedVisibility(
+                visible = tab == Tab.ALARMS || tab == Tab.WORLD,
+                enter = scaleIn() + fadeIn() + androidx.compose.animation.expandHorizontally(),
+                exit = scaleOut() + fadeOut() + androidx.compose.animation.shrinkHorizontally(),
+            ) {
+                Row {
+                    Spacer(Modifier.size(10.dp))
+                    Box(
+                        Modifier
+                            .shadow(14.dp, CircleShape, ambientColor = T24.Amber, spotColor = T24.Amber)
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(T24.AmberLight, T24.Amber)))
+                            .clickable { if (tab == Tab.WORLD) cityAdds++ else alarmAdds++ },
+                        contentAlignment = Alignment.Center
+                    ) { GlyphIcon(Glyph.PLUS, OnAmber, 24.dp) }
+                }
+            }
+        }
 
         AnimatedVisibility(
             visible = showSettings,
@@ -277,14 +288,14 @@ internal fun TabBar(current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = 
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) { onSelect(t) }
-                    .padding(horizontal = if (sel) 14.dp else 12.dp, vertical = 10.dp),
+                    .padding(horizontal = if (sel) 14.dp else 11.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 GlyphIcon(t.glyph, if (sel) T24.AmberLight else T24.Muted, 22.dp)
                 AnimatedVisibility(sel) {
                     Row {
                         Spacer(Modifier.size(8.dp))
-                        Text(t.title, color = T24.Text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Text(t.title, color = T24.Text, fontSize = 14.dp.fixedSp(), fontWeight = FontWeight.Medium, maxLines = 1)
                     }
                 }
             }

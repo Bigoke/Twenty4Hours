@@ -10,6 +10,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -74,11 +76,12 @@ fun PillButton(
                 else Modifier.background(T24.SurfaceHigh).border(1.dp, T24.Line, shape)
             )
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             color = when {
                 !enabled -> T24.Faint
                 primary -> OnAmber
@@ -181,16 +184,32 @@ fun OptionRow(
     }
 }
 
-/** Small row of selectable values, e.g. 5 · 10 · 15 min. */
+/** Selectable values, e.g. 5 · 10 · 15 min. Wraps onto a new line instead of running off screen. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun <T> ChoiceRow(options: List<T>, selected: T, label: (T) -> String, onPick: (T) -> Unit) {
-    Row(
-        Modifier.horizontalScroll(androidx.compose.foundation.rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         options.forEach { o -> Chip(label(o), o == selected) { onPick(o) } }
     }
 }
+
+/** Wrapping row for any small items (chips, compact buttons). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun WrapRow(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    FlowRow(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) { content() }
+}
+
+/** Text size in dp, ignoring the system font scale — for text that is part of a drawn dial. */
+@Composable
+fun Dp.fixedSp(): androidx.compose.ui.unit.TextUnit = with(androidx.compose.ui.platform.LocalDensity.current) { this@fixedSp.toSp() }
 
 // --------------------------------------------------------------- glyph icons
 

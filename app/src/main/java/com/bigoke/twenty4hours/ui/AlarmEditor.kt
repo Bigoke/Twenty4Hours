@@ -145,7 +145,8 @@ fun AlarmEditorBody(
                         if (isNew) (if (kind == AlarmKind.REMINDER) "New reminder" else "New alarm")
                         else (if (kind == AlarmKind.REMINDER) "Edit reminder" else "Edit alarm"),
                         fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = T24.Text,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f), maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                     )
                     Text(
                         "in " + formatCountdown(now, preview.nextTrigger(now)),
@@ -206,7 +207,7 @@ fun AlarmEditorBody(
             Column(Modifier.padding(horizontal = 24.dp)) {
                 Spacer(Modifier.height(22.dp))
                 SectionTitle("Repeat")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                WrapRow {
                     Chip("Once", days.isEmpty()) { days = emptySet() }
                     Chip("Weekdays", days == setOf(1, 2, 3, 4, 5)) { days = setOf(1, 2, 3, 4, 5) }
                     Chip("Weekends", days == setOf(6, 7)) { days = setOf(6, 7) }
@@ -290,7 +291,7 @@ fun AlarmEditorBody(
 
                 Spacer(Modifier.height(26.dp))
                 if (!isNew) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    WrapRow(Modifier.fillMaxWidth()) {
                         if (initial.enabled) {
                             PillButton(
                                 when {
@@ -298,11 +299,11 @@ fun AlarmEditorBody(
                                     initial.repeating -> "Skip next"
                                     else -> "Turn off"
                                 },
-                                Modifier.weight(1f), height = 46.dp, onClick = onSkipToggle
+                                height = 44.dp, onClick = onSkipToggle
                             )
                         }
-                        PillButton("Duplicate", Modifier.weight(1f), height = 46.dp) { onDuplicate(build()) }
-                        PillButton("Delete", Modifier.weight(1f), height = 46.dp, onClick = onDelete)
+                        PillButton("Duplicate", height = 44.dp) { onDuplicate(build()) }
+                        PillButton("Delete", height = 44.dp, onClick = onDelete)
                     }
                     Spacer(Modifier.height(12.dp))
                 }

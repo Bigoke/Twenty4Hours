@@ -45,6 +45,8 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,8 +66,8 @@ private class DialGeo(w: Float, h: Float, d: Density) {
     val ro = r + trackW * 0.95f
     val rh = ro + with(d) { 12.dp.toPx() }
     val rl = rh + with(d) { 14.dp.toPx() }
-    val puckL = trackW * 1.5f
-    val puckW = trackW * 1.2f
+    val puckL = trackW * 1.22f
+    val puckW = trackW * 1.0f
 
     fun deg(minute: Float) = minute / 1440f * 360f
     fun pointAt(minute: Float, radius: Float) = pointOn(c, radius, deg(minute))
@@ -173,49 +175,60 @@ fun Dial(
             drawLabels(g, measurer, shown, now, next?.id)
         }
 
-        // Centre card
+        // Centre card — sized from the dial, not the system font size, so it always fits inside the ring
+        val k = side.value / 400f
         Column(
-            Modifier.align(Alignment.Center).width(side * 0.46f),
+            Modifier.align(Alignment.Center).width(side * 0.44f),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             when {
                 dragged != null -> {
-                    CenterSmall("MOVE")
-                    CenterLabel(dragged.displayLabel)
-                    CenterTime(dragged.timeText)
-                    CenterSub("release to save", T24.Muted)
+                    CenterSmall("MOVE", k)
+                    CenterLabel(dragged.displayLabel, k)
+                    CenterTime(dragged.timeText, k)
+                    CenterSub("release to save", T24.Muted, 14f, k)
                 }
                 next != null && nextAt != null -> {
-                    CenterSmall(if (next.isReminder) "NEXT REMINDER" else "NEXT")
-                    CenterLabel(next.displayLabel)
-                    CenterTime(next.timeText)
-                    CenterSub("in " + formatCountdown(now, nextAt), T24.Text)
-                    Spacer(Modifier.height(4.dp))
-                    CenterSub(next.ringsText(), T24.Muted, 12)
+                    CenterSmall(if (next.isReminder) "NEXT REMINDER" else "NEXT", k)
+                    CenterLabel(next.displayLabel, k)
+                    CenterTime(next.timeText, k)
+                    CenterSub("in " + formatCountdown(now, nextAt), T24.Text, 16f, k)
+                    Spacer(Modifier.height((3 * k).dp))
+                    CenterSub(next.ringsText(), T24.Muted, 12f, k)
                 }
                 else -> {
-                    CenterSmall("NO ALARMS")
-                    Spacer(Modifier.height(6.dp))
-                    CenterSub("Tap +, or hold", T24.Muted, 13)
-                    CenterSub("the ring to add one", T24.Muted, 13)
+                    CenterSmall("NO ALARMS", k)
+                    Spacer(Modifier.height((6 * k).dp))
+                    CenterSub("Tap +, or hold", T24.Muted, 13f, k)
+                    CenterSub("the ring to add one", T24.Muted, 13f, k)
                 }
             }
         }
     }
 }
 
-@Composable private fun CenterSmall(t: String) =
-    Text(t, color = T24.Muted, fontSize = 11.sp, letterSpacing = 3.sp, maxLines = 1)
-
-@Composable private fun CenterLabel(t: String) =
-    Text(t, color = T24.Text, fontSize = 17.sp, fontWeight = FontWeight.Medium, maxLines = 1)
-
-@Composable private fun CenterTime(t: String) =
-    Text(t, color = T24.Text, fontSize = 50.sp, fontWeight = FontWeight.Light, maxLines = 1)
-
-@Composable private fun CenterSub(t: String, c: Color, size: Int = 16) =
+@Composable private fun CenterSmall(t: String, k: Float) =
     Text(
-        t, color = c, fontSize = size.sp, maxLines = 1, textAlign = TextAlign.Center,
+        t, color = T24.Muted, fontSize = (11 * k).dp.fixedSp(), letterSpacing = (3 * k).dp.fixedSp(),
+        maxLines = 1, overflow = TextOverflow.Ellipsis
+    )
+
+@Composable private fun CenterLabel(t: String, k: Float) =
+    Text(
+        t, color = T24.Text, fontSize = (17 * k).dp.fixedSp(), fontWeight = FontWeight.Medium,
+        maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center
+    )
+
+@Composable private fun CenterTime(t: String, k: Float) =
+    Text(
+        t, color = T24.Text, fontSize = (50 * k).dp.fixedSp(), lineHeight = (56 * k).dp.fixedSp(),
+        fontWeight = FontWeight.Light, maxLines = 1
+    )
+
+@Composable private fun CenterSub(t: String, c: Color, size: Float, k: Float) =
+    Text(
+        t, color = c, fontSize = (size * k).dp.fixedSp(), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
         fontWeight = if (c == T24.Text) FontWeight.Medium else FontWeight.Normal
     )
 
@@ -273,8 +286,8 @@ private fun DrawScope.drawPucks(g: DialGeo, alarms: List<Alarm>, nextId: Int?, d
         val w = g.puckW * scale
         drawCircle(
             Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.55f * alpha), Color.Transparent),
-                center = p + Offset(0f, 4.dp.toPx()), radius = l * 0.75f),
-            radius = l * 0.75f, center = p + Offset(0f, 4.dp.toPx())
+                center = p + Offset(0f, 3.dp.toPx()), radius = l * 0.62f),
+            radius = l * 0.62f, center = p + Offset(0f, 3.dp.toPx())
         )
         val top = if (isNext) T24.AmberLight else T24.CreamLight
         val bottom = if (isNext) T24.AmberDark else T24.CreamDark
@@ -284,11 +297,15 @@ private fun DrawScope.drawPucks(g: DialGeo, alarms: List<Alarm>, nextId: Int?, d
                 brush = Brush.verticalGradient(listOf(top, bottom), startY = tl.y, endY = tl.y + w),
                 topLeft = tl, size = Size(l, w), cornerRadius = CornerRadius(w * 0.45f), alpha = alpha
             )
+            // soft sheen on the upper half
             drawRoundRect(
-                color = Color.White.copy(alpha = 0.38f * alpha),
-                topLeft = tl + Offset(l * 0.2f, w * 0.12f),
-                size = Size(l * 0.6f, w * 0.2f),
-                cornerRadius = CornerRadius(w * 0.1f)
+                brush = Brush.verticalGradient(
+                    listOf(Color.White.copy(alpha = 0.32f * alpha), Color.Transparent),
+                    startY = tl.y, endY = tl.y + w * 0.55f
+                ),
+                topLeft = tl + Offset(l * 0.1f, w * 0.06f),
+                size = Size(l * 0.8f, w * 0.5f),
+                cornerRadius = CornerRadius(w * 0.35f)
             )
             if (a.isSkipping(now) && a.enabled) {
                 drawLine(
@@ -330,52 +347,63 @@ private data class Label(val minute: Float, val title: String, val sub: String, 
 private fun DrawScope.drawLabels(
     g: DialGeo, measurer: TextMeasurer, alarms: List<Alarm>, now: ZonedDateTime, nextId: Int?
 ) {
-    val hourStyle = TextStyle(color = T24.Muted, fontSize = 11.sp)
-    for (h in 0 until 24 step 3) {
-        val r = measurer.measure("%02d".format(h), hourStyle)
-        val p = g.pointAt(h * 60f, g.rh)
-        drawText(r, topLeft = Offset(p.x - r.size.width / 2f, p.y - r.size.height / 2f))
-    }
-
+    // Sizes follow the dial, not the system font scale, so labels never outgrow the space around it.
+    val k = g.s / 400.dp.toPx()
     val nowMin = now.hour * 60 + now.minute + now.second / 60f
     val labels = buildList {
         add(Label(nowMin, "Now", "%02d:%02d".format(now.hour, now.minute), T24.Text))
         alarms.forEach { a ->
-            val t = a.displayLabel.let { if (it.length > 16) it.take(15) + "…" else it }
             val col = when {
                 !a.enabled -> T24.Faint
                 a.id == nextId -> T24.Text
                 else -> T24.Text.copy(alpha = 0.85f)
             }
             val sub = if (a.enabled && a.isSkipping(now)) a.timeText + " · skip" else a.timeText
-            add(Label(a.minuteOfDay.toFloat(), t, sub, col))
+            add(Label(a.minuteOfDay.toFloat(), a.displayLabel, sub, col))
         }
     }.sortedBy { it.minute }
+
+    val tStyleBase = TextStyle(fontSize = (13 * k).dp.toSp(), fontWeight = FontWeight.Medium)
+    val sStyle = TextStyle(color = T24.Muted, fontSize = (12 * k).dp.toSp())
+    val edge = 4.dp.toPx()
+    val maxLabel = 118.dp.toPx() * k
 
     val placed = mutableListOf<Rect>()
     val gap = 2.dp.toPx()
     for (lb in labels) {
-        val tStyle = TextStyle(color = lb.titleColor, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        val sStyle = TextStyle(color = T24.Muted, fontSize = 12.sp)
-        val tr: TextLayoutResult = measurer.measure(lb.title, tStyle, maxLines = 1)
-        val sr: TextLayoutResult = measurer.measure(lb.sub, sStyle, maxLines = 1)
-        val bw = maxOf(tr.size.width, sr.size.width).toFloat()
-        val bh = (tr.size.height + sr.size.height).toFloat()
-
         val theta = Math.toRadians(g.deg(lb.minute).toDouble())
         val sinT = kotlin.math.sin(theta).toFloat()
         val cosT = kotlin.math.cos(theta).toFloat()
         val p = g.pointAt(lb.minute, g.rl)
+
+        // Room between the label's anchor and the screen edge, so long names end in "…" instead of clipping
+        val room = when {
+            sinT > 0.35f -> size.width - p.x - edge
+            sinT < -0.35f -> p.x - edge
+            else -> 2f * minOf(p.x, size.width - p.x) - 2 * edge
+        }.coerceIn(24.dp.toPx(), maxLabel)
+
+        val tr: TextLayoutResult = measurer.measure(
+            lb.title, tStyleBase.copy(color = lb.titleColor),
+            overflow = TextOverflow.Ellipsis, maxLines = 1,
+            constraints = Constraints(maxWidth = room.toInt())
+        )
+        val sr: TextLayoutResult = measurer.measure(
+            lb.sub, sStyle, maxLines = 1, constraints = Constraints(maxWidth = room.toInt())
+        )
+        val bw = maxOf(tr.size.width, sr.size.width).toFloat()
+        val bh = (tr.size.height + sr.size.height).toFloat()
+
         var left = p.x - bw * (1f - sinT) / 2f
         var top = p.y - bh * (1f + cosT) / 2f
-        left = left.coerceIn(0f, (size.width - bw).coerceAtLeast(0f))
+        left = left.coerceIn(edge, (size.width - bw - edge).coerceAtLeast(edge))
         top = top.coerceIn(0f, (size.height - bh).coerceAtLeast(0f))
 
         var rect = Rect(left, top, left + bw, top + bh)
         var tries = 0
         val dir = if (p.y >= g.c.y) 1f else -1f
-        while (placed.any { it.inflate(gap).overlaps(rect) } && tries < 6) {
-            rect = rect.translate(0f, dir * (bh * 0.55f))
+        while (placed.any { it.inflate(gap).overlaps(rect) } && tries < 8) {
+            rect = rect.translate(0f, dir * (bh * 0.5f))
             tries++
         }
         if (rect.top < 0f || rect.bottom > size.height) continue
@@ -384,5 +412,15 @@ private fun DrawScope.drawLabels(
         val align = (1f - sinT) / 2f
         drawText(tr, topLeft = Offset(rect.left + (bw - tr.size.width) * align, rect.top))
         drawText(sr, topLeft = Offset(rect.left + (bw - sr.size.width) * align, rect.top + tr.size.height))
+    }
+
+    // Hour numbers last, skipping any that would sit under a label
+    val hourStyle = TextStyle(color = T24.Muted, fontSize = (11 * k).dp.toSp())
+    for (h in 0 until 24 step 3) {
+        val r = measurer.measure("%02d".format(h), hourStyle)
+        val p = g.pointAt(h * 60f, g.rh)
+        val rect = Rect(p.x - r.size.width / 2f, p.y - r.size.height / 2f, p.x + r.size.width / 2f, p.y + r.size.height / 2f)
+        if (placed.any { it.inflate(gap).overlaps(rect) }) continue
+        drawText(r, topLeft = rect.topLeft)
     }
 }

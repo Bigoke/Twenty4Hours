@@ -114,7 +114,7 @@ fun TimerScreen(contentPadding: PaddingValues) {
                 }
                 Spacer(Modifier.width(22.dp))
                 RoundButton(58.dp, primary = false, onClick = { TimerOps.addMs(ctx, timer.id, 60_000L) }) {
-                    Text("+1:00", color = T24.Cream, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Text("+1:00", color = T24.Cream, fontSize = 13.dp.fixedSp(), fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -174,7 +174,7 @@ fun TimerScreen(contentPadding: PaddingValues) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             GlyphIcon(Glyph.PLUS, T24.Cream, 22.dp)
                             Spacer(Modifier.height(6.dp))
-                            Text("New", color = T24.Muted, fontSize = 13.sp)
+                            Text("New", color = T24.Muted, fontSize = 13.dp.fixedSp())
                         }
                     }
                 }
@@ -240,6 +240,7 @@ private fun TimerFace(
 
     BoxWithConstraints(modifier.fillMaxWidth().aspectRatio(1f)) {
         val side = maxWidth
+        val k = side.value / 360f
         Canvas(
             Modifier
                 .fillMaxWidth()
@@ -294,13 +295,14 @@ private fun TimerFace(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                timer.displayLabel, color = T24.Muted, fontSize = 15.sp, maxLines = 1,
+                timer.displayLabel, color = T24.Muted, fontSize = (15 * k).dp.fixedSp(), maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onLabelTap).padding(4.dp)
             )
             Text(
                 formatHms(remaining),
                 color = T24.Text,
-                fontSize = if (remaining >= 3_600_000L) 44.sp else 56.sp,
+                fontSize = (if (remaining >= 3_600_000L) 44 * k else 56 * k).dp.fixedSp(),
                 fontWeight = FontWeight.Light, maxLines = 1
             )
             val status = when (timer.state) {
@@ -312,7 +314,7 @@ private fun TimerFace(
             val col by animateColorAsState(
                 if (timer.state == TimerState.RUNNING) T24.AmberLight else T24.Muted, label = "st"
             )
-            Text(status, color = col, fontSize = 14.sp)
+            Text(status, color = col, fontSize = (14 * k).dp.fixedSp(), maxLines = 1)
         }
     }
 }
@@ -348,12 +350,13 @@ private fun TimerCard(t: TimerItem, now: Long, selected: Boolean, onClick: () ->
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(formatHms(rem), color = T24.Text, fontSize = 15.sp, maxLines = 1)
+        Text(formatHms(rem), color = T24.Text, fontSize = 15.dp.fixedSp(), maxLines = 1)
         Text(
             if (t.label.isBlank()) when (t.state) {
                 TimerState.RUNNING -> "running"; TimerState.PAUSED -> "paused"; TimerState.IDLE -> "ready"
             } else t.label,
-            color = T24.Muted, fontSize = 11.sp, maxLines = 1
+            color = T24.Muted, fontSize = 11.dp.fixedSp(), maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
     }
 }
@@ -364,7 +367,10 @@ fun ScreenHeader(title: String, trailing: @Composable () -> Unit = {}) {
         Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 4.dp).height(48.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(title, color = T24.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Text(
+            title, color = T24.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+        )
         trailing()
     }
 }

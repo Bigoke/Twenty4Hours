@@ -69,6 +69,7 @@ fun StopwatchScreen(contentPadding: PaddingValues) {
         item {
             BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp).aspectRatio(1f)) {
                 val side = maxWidth
+                val k = side.value / 360f
                 Canvas(Modifier.fillMaxWidth().aspectRatio(1f)) {
                     val c = Offset(size.width / 2f, size.height / 2f)
                     val s = size.minDimension
@@ -101,19 +102,19 @@ fun StopwatchScreen(contentPadding: PaddingValues) {
                 ) {
                     Text(
                         formatStopwatch(elapsed),
-                        color = T24.Text, fontSize = if (elapsed >= 3_600_000L) 34.sp else 44.sp,
+                        color = T24.Text, fontSize = (if (elapsed >= 3_600_000L) 34 * k else 44 * k).dp.fixedSp(),
                         fontWeight = FontWeight.Light, maxLines = 1,
                         fontFamily = FontFamily.Default
                     )
                     if (sw.laps.isNotEmpty()) {
                         Text(
                             "Lap ${sw.laps.size + 1} · ${formatStopwatch(currentLap)}",
-                            color = T24.AmberLight, fontSize = 14.sp, maxLines = 1
+                            color = T24.AmberLight, fontSize = (14 * k).dp.fixedSp(), maxLines = 1
                         )
                     } else {
                         Text(
                             if (sw.running) "running" else if (elapsed > 0) "paused" else "tap play to start",
-                            color = T24.Muted, fontSize = 14.sp
+                            color = T24.Muted, fontSize = (14 * k).dp.fixedSp(), maxLines = 1
                         )
                     }
                 }
