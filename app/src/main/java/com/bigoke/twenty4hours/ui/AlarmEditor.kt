@@ -72,8 +72,30 @@ fun AlarmEditor(
     onSkipToggle: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val ctx = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheet,
+        containerColor = T24.Surface,
+        contentColor = T24.Text,
+    ) {
+        AlarmEditorBody(initial, isNew, onSave, onDelete, onDuplicate, onSkipToggle, Modifier.verticalScroll(rememberScrollState()))
+    }
+}
+
+/** The editor's contents, separate from the sheet so it can be previewed and screenshot-tested. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlarmEditorBody(
+    initial: Alarm,
+    isNew: Boolean,
+    onSave: (Alarm) -> Unit,
+    onDelete: () -> Unit,
+    onDuplicate: (Alarm) -> Unit,
+    onSkipToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val ctx = LocalContext.current
     val time = rememberTimePickerState(initial.hour, initial.minute, is24Hour = true)
     var kind by remember { mutableStateOf(initial.kind) }
     var label by remember { mutableStateOf(initial.label) }
@@ -111,16 +133,10 @@ fun AlarmEditor(
     val preview = build()
     val now = ZonedDateTime.now()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheet,
-        containerColor = T24.Surface,
-        contentColor = T24.Text,
-    ) {
+    run {
         Column(
-            Modifier
+            modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
         ) {
             Column(Modifier.padding(horizontal = 24.dp)) {

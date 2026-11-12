@@ -136,7 +136,7 @@ class RingActivity : ComponentActivity() {
 }
 
 @Composable
-private fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit) {
+internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit) {
     val now by produceState(LocalTime.now()) {
         while (true) { value = LocalTime.now(); delay(1000) }
     }
@@ -287,7 +287,7 @@ private fun SlideToAct(leftText: String, rightText: String, onLeft: () -> Unit, 
 }
 
 @Composable
-private fun MathChallenge(onSolved: () -> Unit, onCancel: () -> Unit) {
+internal fun MathChallenge(onSolved: () -> Unit, onCancel: () -> Unit) {
     val haptic = LocalHapticFeedback.current
     var problem by remember { mutableStateOf(newProblem()) }
     var entry by remember { mutableStateOf("") }

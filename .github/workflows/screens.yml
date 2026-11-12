@@ -1,0 +1,41 @@
+name: Screenshots
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  screens:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Render every screen
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew testDebugUnitTest --tests '*ScreenshotTest*' 2>&1 | tee test.log
+
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|FAILED|Exception" -A3 test.log | head -60 > errors.txt || true
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            grep -A4 "<failure" "$f" | head -12 >> errors.txt || true
+          done
+          while IFS= read -r line; do echo "::error::$line"; done < <(head -45 errors.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens
+          path: app/build/screens/*.png
+          if-no-files-found: warn

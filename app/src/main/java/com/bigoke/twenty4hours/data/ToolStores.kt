@@ -157,7 +157,7 @@ object StopwatchStore {
         _s.value = d
     }
 
-    private fun set(d: StopwatchData) {
+    internal fun set(d: StopwatchData) {
         val a = JSONArray(); d.laps.forEach { a.put(it) }
         Prefs.sp.edit()
             .putBoolean("sw_running", d.running)

@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class Tab(val title: String, val glyph: Glyph) {
+internal enum class Tab(val title: String, val glyph: Glyph) {
     ALARMS("Alarms", Glyph.ALARM),
     TIMER("Timer", Glyph.TIMER),
     STOPWATCH("Stopwatch", Glyph.STOPWATCH),
@@ -122,12 +122,16 @@ private enum class Tab(val title: String, val glyph: Glyph) {
 }
 
 @Composable
-private fun AppRoot(tabRequest: MutableStateFlow<String?>) {
+internal fun AppRoot(
+    tabRequest: MutableStateFlow<String?>,
+    initialTab: Tab = Tab.ALARMS,
+    firstRunChecks: Boolean = true,
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
-    var tab by remember { mutableStateOf(Tab.ALARMS) }
+    var tab by remember { mutableStateOf(initialTab) }
     var showSettings by remember { mutableStateOf(false) }
     var alarmAdds by remember { mutableIntStateOf(0) }
     var cityAdds by remember { mutableIntStateOf(0) }
@@ -154,6 +158,7 @@ private fun AppRoot(tabRequest: MutableStateFlow<String?>) {
 
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) {
+        if (!firstRunChecks) return@LaunchedEffect
         if (Build.VERSION.SDK_INT >= 33 && !Perms.notifications(ctx)) {
             notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
@@ -251,7 +256,7 @@ private fun AppRoot(tabRequest: MutableStateFlow<String?>) {
 }
 
 @Composable
-private fun TabBar(current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
+internal fun TabBar(current: Tab, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .shadow(20.dp, RoundedCornerShape(30.dp))

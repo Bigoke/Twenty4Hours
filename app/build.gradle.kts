@@ -50,6 +50,15 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all {
+                it.systemProperty("roborazzi.test.record", "true")
+                it.maxHeapSize = "3g"
+            }
+        }
+    }
     lint {
         checkReleaseBuilds = false
         abortOnError = false
@@ -67,4 +76,15 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+
+    // Screenshot tests (render every screen on the JVM to check layout)
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("androidx.test.ext:junit:1.2.1")
+    testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi:1.32.2")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.32.2")
+    testImplementation("io.github.takahirom.roborazzi:roborazzi-junit-rule:1.32.2")
 }
