@@ -62,7 +62,7 @@ private val ALL_ZONES: List<String> by lazy {
 }
 
 fun cityOf(zone: String) = zone.substringAfterLast('/').replace('_', ' ')
-fun regionOf(zone: String) = zone.substringBeforeLast('/').replace('/', ' · ').replace('_', ' ')
+fun regionOf(zone: String) = zone.substringBeforeLast('/').replace("/", " · ").replace("_", " ")
 
 @Composable
 fun WorldScreen(now: ZonedDateTime, contentPadding: PaddingValues, addRequests: Int) {

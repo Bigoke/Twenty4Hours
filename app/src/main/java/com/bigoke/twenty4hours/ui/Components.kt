@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -322,7 +323,7 @@ fun DrawScope.drawGlowArc(c: Offset, radius: Float, fromDeg: Float, sweepDeg: Fl
     listOf(18.dp to 0.06f, 11.dp to 0.10f, 6.dp to 0.18f).forEach { (w, a) ->
         drawArc(T24.Amber.copy(alpha = a), start, sweepDeg, false, tl, sz, style = Stroke(w.toPx(), cap = StrokeCap.Round))
     }
-    androidx.compose.ui.graphics.drawscope.rotate(start, pivot = c) {
+    rotate(start, pivot = c) {
         val end = (sweepDeg / 360f).coerceIn(0.001f, 1f)
         drawArc(
             brush = Brush.sweepGradient(0f to T24.AmberDark.copy(alpha = 0.6f), end to T24.AmberLight, center = c),
