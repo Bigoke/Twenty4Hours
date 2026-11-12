@@ -107,6 +107,7 @@ class ScreenshotTest {
         compose.onRoot().captureRoboImage("build/screens/$name.png")
     }
 
+    @Composable
     private fun app(tab: Tab) {
         AppRoot(MutableStateFlow(null), initialTab = tab, firstRunChecks = false)
     }
