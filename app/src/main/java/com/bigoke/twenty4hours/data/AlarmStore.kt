@@ -29,6 +29,24 @@ object Prefs {
 object Stores {
     /** Called after alarms or timers change (used to refresh the home-screen widget). */
     var onAlarmsChanged: (() -> Unit)? = null
+    /** Called after the world-clock city list changes. */
+    var onWorldChanged: (() -> Unit)? = null
+
+    /** Re-read every store from storage (after restoring a backup). */
+    @Synchronized
+    fun reload() {
+        AppSettings.load()
+        AlarmStore.load()
+        TimerStore.load()
+        StopwatchStore.load()
+        WorldStore.load()
+        EventLog.load()
+        PresetStore.load()
+        SessionStore.load()
+        com.bigoke.twenty4hours.alarm.TripStore.load()
+        onAlarmsChanged?.invoke()
+        onWorldChanged?.invoke()
+    }
 
     @Synchronized
     fun init(context: Context) {
@@ -42,6 +60,7 @@ object Stores {
         EventLog.load()
         PresetStore.load()
         SessionStore.load()
+        com.bigoke.twenty4hours.alarm.TripStore.load()
     }
 }
 

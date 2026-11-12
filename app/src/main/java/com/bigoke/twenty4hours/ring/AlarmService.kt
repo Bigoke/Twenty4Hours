@@ -36,7 +36,7 @@ import com.bigoke.twenty4hours.data.formatHms
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.LocalTime
 
-enum class RingKind { ALARM, TIMER, TEST }
+enum class RingKind { ALARM, TIMER, TEST, TRIP }
 
 data class RingInfo(
     val kind: RingKind,
@@ -74,6 +74,8 @@ class AlarmService : Service() {
         const val ACTION_SNOOZE = "com.bigoke.twenty4hours.SNOOZE"
         const val ACTION_STOP = "com.bigoke.twenty4hours.STOP"
         const val ACTION_TEST = "com.bigoke.twenty4hours.TEST"
+        const val ACTION_RING_TRIP = "com.bigoke.twenty4hours.RING_TRIP"
+        const val EXTRA_TRIP_NAME = "trip_name"
         const val TEST_ID = -1
         private const val NOTIF_ID = 2400
 
@@ -117,6 +119,10 @@ class AlarmService : Service() {
             )
             ACTION_RING_TIMER -> ringTimer(intent.getIntExtra(AlarmScheduler.EXTRA_TIMER_ID, Int.MIN_VALUE))
             ACTION_TEST -> ringAlarm(TEST_ID, 0, System.currentTimeMillis())
+            ACTION_RING_TRIP -> start(
+                RingInfo(RingKind.TRIP, -2, "Nearly at " + (intent.getStringExtra(EXTRA_TRIP_NAME) ?: "your stop"), nowText()),
+                null, true, 0L
+            )
             ACTION_SNOOZE -> snooze()
             ACTION_STOP -> stopCycle()
             else -> if (RingState.current.value == null) silenceAndStop()

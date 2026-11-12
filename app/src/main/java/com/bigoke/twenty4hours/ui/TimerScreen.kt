@@ -62,7 +62,7 @@ import kotlin.math.roundToInt
 private val PRESETS = listOf(1, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90)
 
 @Composable
-fun TimerScreen(contentPadding: PaddingValues) {
+internal fun TimersPane(contentPadding: PaddingValues, header: @Composable () -> Unit) {
     val ctx = LocalContext.current
     val timers by TimerStore.timers.collectAsState()
     val selectedId by TimerStore.selected.collectAsState()
@@ -84,7 +84,7 @@ fun TimerScreen(contentPadding: PaddingValues) {
         Modifier.fillMaxWidth(),
         contentPadding = contentPadding
     ) {
-        item { ScreenHeader("Timer") }
+        item { header() }
         item {
             TimerFace(
                 timer = timer,
@@ -153,6 +153,10 @@ fun TimerScreen(contentPadding: PaddingValues) {
                     }
                 }
             }
+        } }
+        item { Column {
+            SectionTitle("Saved", Modifier.padding(start = 24.dp, top = 20.dp))
+            PresetRow(timer)
         } }
         item { Column {
             SectionTitle("Your timers", Modifier.padding(start = 24.dp, top = 22.dp))
@@ -374,5 +378,34 @@ fun ScreenHeader(title: String, trailing: @Composable () -> Unit = {}) {
             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
         )
         trailing()
+    }
+}
+
+
+/** Saved named timers (Soft egg 6:30 …): tap to start one, or save the current timer. */
+@Composable
+private fun PresetRow(current: TimerItem) {
+    val ctx = LocalContext.current
+    val presets by com.bigoke.twenty4hours.data.PresetStore.presets.collectAsState()
+    var managing by remember { mutableStateOf(false) }
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(presets, key = { it.id }) { p ->
+            Chip((if (managing) "✕  " else "") + p.name + " · " + formatHms(p.ms), managing) {
+                if (managing) com.bigoke.twenty4hours.data.PresetStore.remove(p.id)
+                else {
+                    val t = TimerStore.add(p.ms, p.name)
+                    TimerOps.start(ctx, t.id)
+                }
+            }
+        }
+        item {
+            Chip("+ Save current", false) {
+                com.bigoke.twenty4hours.data.PresetStore.add(current.label, current.durationMs)
+            }
+        }
+        item { Chip(if (managing) "Done" else "Edit", false) { managing = !managing } }
     }
 }

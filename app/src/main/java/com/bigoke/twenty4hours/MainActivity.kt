@@ -96,6 +96,9 @@ class MainActivity : ComponentActivity() {
         const val TAB_STOPWATCH = "stopwatch"
         const val TAB_WORLD = "world"
         const val TAB_NEW_ALARM = "new_alarm"
+        const val TAB_TRIP = "trip"
+        const val TAB_FOCUS_START = "focus_start"
+        const val TAB_STATS = "stats"
     }
 
     /** Tab requests from shortcuts / notifications, delivered to the composition. */
@@ -135,6 +138,8 @@ internal fun AppRoot(
 
     var tab by remember { mutableStateOf(initialTab) }
     var showSettings by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
+    var showTrip by remember { mutableStateOf(false) }
     var alarmAdds by remember { mutableIntStateOf(0) }
     var cityAdds by remember { mutableIntStateOf(0) }
 
@@ -154,6 +159,13 @@ internal fun AppRoot(
             MainActivity.TAB_STOPWATCH -> tab = Tab.STOPWATCH
             MainActivity.TAB_WORLD -> tab = Tab.WORLD
             MainActivity.TAB_NEW_ALARM -> { tab = Tab.ALARMS; delay(300); alarmAdds++ }
+            MainActivity.TAB_TRIP -> showTrip = true
+            MainActivity.TAB_STATS -> showStats = true
+            MainActivity.TAB_FOCUS_START -> {
+                if (!com.bigoke.twenty4hours.data.SessionStore.value.active)
+                    com.bigoke.twenty4hours.alarm.SessionOps.start(ctx, com.bigoke.twenty4hours.data.SessionKind.FOCUS)
+                tab = Tab.TIMER
+            }
         }
         if (req != null) tabRequest.value = null
     }
@@ -171,8 +183,9 @@ internal fun AppRoot(
         AlarmStore.setupShown = true
     }
 
-    BackHandler(enabled = showSettings) { showSettings = false }
-    BackHandler(enabled = !showSettings && tab != Tab.ALARMS) { tab = Tab.ALARMS }
+    val overlay = showSettings || showStats || showTrip
+    BackHandler(enabled = overlay) { showSettings = false; showStats = false; showTrip = false }
+    BackHandler(enabled = !overlay && tab != Tab.ALARMS) { tab = Tab.ALARMS }
 
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
@@ -194,6 +207,8 @@ internal fun AppRoot(
                     contentPadding = listPadding,
                     addRequests = alarmAdds,
                     onOpenSettings = { showSettings = true },
+                    onOpenStats = { showStats = true },
+                    onOpenTrip = { showTrip = true },
                     showUndo = { msg, undo ->
                         scope.launch {
                             snackbar.currentSnackbarData?.dismiss()
@@ -262,6 +277,20 @@ internal fun AppRoot(
             exit = slideOutHorizontally(tween(240)) { it } + fadeOut(),
         ) {
             SettingsScreen(onBack = { showSettings = false })
+        }
+        AnimatedVisibility(
+            visible = showStats,
+            enter = slideInHorizontally(tween(280)) { it } + fadeIn(),
+            exit = slideOutHorizontally(tween(240)) { it } + fadeOut(),
+        ) {
+            com.bigoke.twenty4hours.ui.StatsScreen(onBack = { showStats = false })
+        }
+        AnimatedVisibility(
+            visible = showTrip,
+            enter = slideInHorizontally(tween(280)) { it } + fadeIn(),
+            exit = slideOutHorizontally(tween(240)) { it } + fadeOut(),
+        ) {
+            com.bigoke.twenty4hours.ui.TripScreen(onBack = { showTrip = false })
         }
     }
 }

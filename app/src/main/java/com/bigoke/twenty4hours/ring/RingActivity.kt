@@ -215,7 +215,7 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
                 ) {
                     Spacer(Modifier.height(36.dp))
                     Text(
-                        if (isTimer) "TIME'S UP" else "NOW",
+                        when (info.kind) { RingKind.TIMER -> "TIME'S UP"; RingKind.TRIP -> "GET READY TO GET OFF"; else -> "NOW" },
                         color = T24.Muted, fontSize = 12.sp, letterSpacing = 3.sp
                     )
                     Text(

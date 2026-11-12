@@ -11,5 +11,6 @@ class T24App : Application() {
         Stores.init(this)
         Notifier.createChannels(this)
         Stores.onAlarmsChanged = { WidgetUpdater.update(this) }
+        Stores.onWorldChanged = { WidgetUpdater.updateWorld(this) }
     }
 }

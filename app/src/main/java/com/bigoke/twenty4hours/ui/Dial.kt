@@ -35,6 +35,20 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.mutableFloatStateOf
+import com.bigoke.twenty4hours.data.CalEvent
+import com.bigoke.twenty4hours.data.Role
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -87,8 +101,12 @@ fun Dial(
     onTap: (Alarm) -> Unit,
     onAddAt: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    events: List<CalEvent> = emptyList(),
+    sun: Pair<Int, Int>? = null,
 ) {
     val haptic = LocalHapticFeedback.current
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
     val measurer = rememberTextMeasurer()
     var dragId by remember { mutableStateOf<Int?>(null) }
     var dragMinute by remember { mutableIntStateOf(0) }
@@ -107,8 +125,36 @@ fun Dial(
     }
     val dragged = shown.firstOrNull { it.id == dragId }
 
-    BoxWithConstraints(modifier.fillMaxWidth().aspectRatio(1f)) {
+    BoxWithConstraints(
+        modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clipToBounds()
+            .pointerInput(Unit) {
+                // Two-finger pinch zooms the dial (checked before the puck dragging below)
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    do {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        if (ev.changes.count { it.pressed } >= 2) {
+                            val nz = (zoom * ev.calculateZoom()).coerceIn(1f, 3f)
+                            val p = ev.calculatePan()
+                            val max = (nz - 1f) * size.width / 2f
+                            pan = if (nz <= 1.01f) Offset.Zero
+                            else Offset((pan.x + p.x).coerceIn(-max, max), (pan.y + p.y).coerceIn(-max, max))
+                            zoom = nz
+                            ev.changes.forEach { it.consume() }
+                        }
+                    } while (ev.changes.any { it.pressed })
+                }
+            }
+    ) {
         val side = maxWidth
+        Box(
+            Modifier.matchParentSize().graphicsLayer {
+                scaleX = zoom; scaleY = zoom; translationX = pan.x; translationY = pan.y
+            }
+        ) {
         Canvas(
             Modifier
                 .fillMaxWidth()
@@ -170,6 +216,9 @@ fun Dial(
         ) {
             val g = DialGeo(size.width, size.height, this)
             drawFace(g.c, g.r, g.trackW)
+            if (sun != null) drawSun(g, sun)
+            sleepPair(alarms)?.let { (bed, wake) -> drawNight(g, bed.minuteOfDay, wake.minuteOfDay) }
+            drawEvents(g, events)
             drawArcToNext(g, now, nextAt, intro.value)
             drawPucks(g, shown, next?.id, dragId, now)
             drawNowKnob(g, now)
@@ -205,6 +254,73 @@ fun Dial(
                 }
             }
         }
+        }
+        if (zoom > 1.01f) {
+            Text(
+                "Reset zoom", color = T24.AmberLight, fontSize = 13.sp,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    .background(T24.SurfaceHigh)
+                    .clickable { zoom = 1f; pan = Offset.Zero }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
+        }
+    }
+}
+
+/** Bedtime reminder and the wake-up alarm after it, for the night band and sleep length. */
+fun sleepPair(alarms: List<Alarm>): Pair<Alarm, Alarm>? {
+    val bed = alarms.firstOrNull { it.active && it.isBedtime } ?: return null
+    val wakes = alarms.filter { it.active && !it.isReminder }
+    fun gap(a: Alarm) = Math.floorMod(a.minuteOfDay - bed.minuteOfDay, 1440)
+    val wake = wakes.firstOrNull { it.role == Role.WAKE }
+        ?: wakes.filter { gap(it) in 1..(16 * 60) }.minByOrNull { gap(it) }
+        ?: return null
+    return bed to wake
+}
+
+fun sleepMinutes(bed: Alarm, wake: Alarm) = Math.floorMod(wake.minuteOfDay - bed.minuteOfDay, 1440)
+
+private fun DrawScope.drawNight(g: DialGeo, bedMin: Int, wakeMin: Int) {
+    val sweep = g.deg(Math.floorMod(wakeMin - bedMin, 1440).toFloat())
+    val ra = g.r
+    drawArc(
+        Color(0xFF2A3550).copy(alpha = 0.55f), g.deg(bedMin.toFloat()) - 90f, sweep, false,
+        Offset(g.c.x - ra, g.c.y - ra), Size(ra * 2, ra * 2), style = Stroke(g.trackW * 0.92f)
+    )
+    // a few faint "stars" along the band
+    val n = (sweep / 18f).toInt()
+    for (i in 1 until n) {
+        val d = g.deg(bedMin.toFloat()) + sweep * i / n
+        val jitter = if (i % 2 == 0) 0.22f else -0.18f
+        drawCircle(Color.White.copy(alpha = 0.35f), radius = 1.1.dp.toPx(), center = pointOn(g.c, g.r + g.trackW * jitter, d))
+    }
+}
+
+private fun DrawScope.drawSun(g: DialGeo, sun: Pair<Int, Int>) {
+    val (up, down) = sun
+    val ra = g.ro
+    drawArc(
+        T24.CreamDark.copy(alpha = 0.35f), g.deg(up.toFloat()) - 90f, g.deg(Math.floorMod(down - up, 1440).toFloat()), false,
+        Offset(g.c.x - ra, g.c.y - ra), Size(ra * 2, ra * 2), style = Stroke(2.5.dp.toPx(), cap = StrokeCap.Round)
+    )
+    listOf(up, down).forEachIndexed { i, m ->
+        val p = g.pointAt(m.toFloat(), ra)
+        drawCircle(T24.Bg, radius = 5.dp.toPx(), center = p)
+        if (i == 0) drawCircle(T24.AmberLight, radius = 3.5.dp.toPx(), center = p)
+        else drawCircle(T24.AmberLight, radius = 3.dp.toPx(), center = p, style = Stroke(1.5.dp.toPx()))
+    }
+}
+
+private fun DrawScope.drawEvents(g: DialGeo, events: List<CalEvent>) {
+    val ra = g.r - g.trackW * 0.62f
+    events.filter { !it.allDay && it.endMin > it.startMin }.forEach { e ->
+        val col = Color(e.color).copy(alpha = 1f)
+        drawArc(
+            lerp(col, T24.Cream, 0.35f).copy(alpha = 0.8f),
+            g.deg(e.startMin.toFloat()) - 90f, g.deg((e.endMin - e.startMin).toFloat()).coerceAtLeast(1.5f), false,
+            Offset(g.c.x - ra, g.c.y - ra), Size(ra * 2, ra * 2), style = Stroke(3.dp.toPx(), cap = StrokeCap.Round)
+        )
     }
 }
 
@@ -252,7 +368,7 @@ private fun DrawScope.drawPucks(g: DialGeo, alarms: List<Alarm>, nextId: Int?, d
         val p = g.pointAt(m, g.r)
         val isNext = a.id == nextId
         val alpha = when {
-            !a.enabled -> 0.28f
+            !a.active -> 0.28f
             a.isSkipping(now) -> 0.5f
             else -> 1f
         }
@@ -355,7 +471,7 @@ private fun DrawScope.drawLabels(
         add(Label(nowMin, "Now", "%02d:%02d".format(now.hour, now.minute), T24.Text))
         alarms.forEach { a ->
             val col = when {
-                !a.enabled -> T24.Faint
+                !a.active -> T24.Faint
                 a.id == nextId -> T24.Text
                 else -> T24.Text.copy(alpha = 0.85f)
             }

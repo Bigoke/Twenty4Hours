@@ -5,4 +5,9 @@
     <string name="sc_new_alarm">New alarm</string>
     <string name="sc_timer">Timer</string>
     <string name="sc_stopwatch">Stopwatch</string>
+    <string name="widget_small_dial_desc">A small 24-hour dial</string>
+    <string name="widget_timer_desc">Your running timer or focus session</string>
+    <string name="widget_world_desc">Three world-clock cities</string>
+    <string name="tile_nap">Nap 20m</string>
+    <string name="tile_focus">Focus</string>
 </resources>

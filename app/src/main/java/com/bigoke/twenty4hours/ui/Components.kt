@@ -213,7 +213,7 @@ fun Dp.fixedSp(): androidx.compose.ui.unit.TextUnit = with(androidx.compose.ui.p
 
 // --------------------------------------------------------------- glyph icons
 
-enum class Glyph { ALARM, TIMER, STOPWATCH, WORLD, PLAY, PAUSE, RESET, FLAG, PLUS, GEAR }
+enum class Glyph { ALARM, TIMER, STOPWATCH, WORLD, PLAY, PAUSE, RESET, FLAG, PLUS, GEAR, CHART, PIN, STOP }
 
 /** Hand-drawn line icons that match the dial (core Material icons lack clock glyphs). */
 @Composable
@@ -288,6 +288,23 @@ fun GlyphIcon(glyph: Glyph, color: Color, size: Dp = 24.dp, modifier: Modifier =
             Glyph.PLUS -> {
                 drawLine(color, Offset(c.x - s * 0.28f, c.y), Offset(c.x + s * 0.28f, c.y), sw * 1.2f, StrokeCap.Round)
                 drawLine(color, Offset(c.x, c.y - s * 0.28f), Offset(c.x, c.y + s * 0.28f), sw * 1.2f, StrokeCap.Round)
+            }
+            Glyph.CHART -> {
+                val w = s * 0.14f
+                listOf(0.35f to -0.28f, 0.6f to 0f, 0.45f to 0.28f).forEach { (h, x) ->
+                    drawRoundRect(
+                        color, Offset(c.x + s * x - w / 2, c.y + s * 0.34f - s * h), Size(w, s * h),
+                        CornerRadius(w / 2)
+                    )
+                }
+            }
+            Glyph.PIN -> {
+                drawCircle(color, radius = s * 0.24f, center = Offset(c.x, c.y - s * 0.1f), style = Stroke(sw))
+                drawLine(color, Offset(c.x, c.y + s * 0.14f), Offset(c.x, c.y + s * 0.4f), sw, StrokeCap.Round)
+                drawCircle(color, radius = s * 0.07f, center = Offset(c.x, c.y - s * 0.1f))
+            }
+            Glyph.STOP -> {
+                drawRoundRect(color, Offset(c.x - s * 0.22f, c.y - s * 0.22f), Size(s * 0.44f, s * 0.44f), CornerRadius(s * 0.07f))
             }
             Glyph.GEAR -> {
                 for (i in 0 until 8) {

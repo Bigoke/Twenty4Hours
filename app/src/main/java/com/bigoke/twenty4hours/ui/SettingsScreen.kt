@@ -59,6 +59,17 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.bigoke.twenty4hours.BuildConfig
 import com.bigoke.twenty4hours.alarm.AlarmScheduler
 import com.bigoke.twenty4hours.data.AppSettings
+import com.bigoke.twenty4hours.data.Accent
+import com.bigoke.twenty4hours.data.Backup
+import com.bigoke.twenty4hours.data.CalendarRepo
+import com.bigoke.twenty4hours.data.Holidays
+import com.bigoke.twenty4hours.data.Places
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import com.bigoke.twenty4hours.data.VolumeAction
 import com.bigoke.twenty4hours.ring.AlarmService
 
@@ -111,6 +122,25 @@ fun SettingsScreen(onBack: () -> Unit) {
         onDispose { owner.lifecycle.removeObserver(obs) }
     }
     val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tick++ }
+    val calLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) AppSettings.update { it.copy(calendarOnDial = true) }
+        tick++
+    }
+    val scope = rememberCoroutineScope()
+    val locLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) scope.launch { withContext(Dispatchers.IO) { Places.refreshFromDevice(ctx) } }
+        tick++
+    }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) Toast.makeText(ctx, if (Backup.export(ctx, uri)) "Backup saved" else "Couldn't save the backup", Toast.LENGTH_SHORT).show()
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val ok = Backup.import(ctx, uri)
+            if (ok) AlarmScheduler.rescheduleAll(ctx)
+            Toast.makeText(ctx, if (ok) "Backup restored" else "That file isn't a Twenty4Hours backup", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     @Suppress("UNUSED_VARIABLE") val t = tick
     val notif = Perms.notifications(ctx)
@@ -209,6 +239,79 @@ fun SettingsScreen(onBack: () -> Unit) {
                         AppSettings.update { it.copy(upcomingLeadMin = v) }
                         AlarmScheduler.rescheduleAll(ctx)
                     }
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Look")
+                    ChoiceRow(Accent.values().toList(), s.accent, { it.title }) { v -> AppSettings.update { it.copy(accent = v) } }
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("On the dial")
+                    OptionRow("Calendar events", "Today's events as thin marks inside the ring") {
+                        T24Switch(s.calendarOnDial && CalendarRepo.hasPermission(ctx), { on ->
+                            if (on && !CalendarRepo.hasPermission(ctx)) calLauncher.launch(Manifest.permission.READ_CALENDAR)
+                            else AppSettings.update { it.copy(calendarOnDial = on) }
+                        })
+                    }
+                    OptionRow("Sunrise & sunset", "Daylight band and sun markers") {
+                        T24Switch(s.sunOnDial, { v -> AppSettings.update { it.copy(sunOnDial = v) } })
+                    }
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Location")
+                    val place = Places.current()
+                    OptionRow(
+                        "Use my location",
+                        when {
+                            s.hasPlace -> "For sun times and weather · ${s.placeName.ifBlank { "located" }}"
+                            place != null -> "Using your time zone (${place.name}) until location is allowed"
+                            else -> "For sun times and weather"
+                        }
+                    ) {
+                        T24Switch(s.useDeviceLocation && Places.hasLocationPermission(ctx), { on ->
+                            if (on) {
+                                AppSettings.update { it.copy(useDeviceLocation = true) }
+                                locLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                            } else AppSettings.update { it.copy(useDeviceLocation = false, lat = Double.NaN, lon = Double.NaN, placeName = "") }
+                        })
+                    }
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Mornings & holidays")
+                    OptionRow("Read the morning summary aloud", "Turn on “Morning summary” on an alarm to get it") {
+                        T24Switch(s.readSummaryAloud, { v -> AppSettings.update { it.copy(readSummaryAloud = v) } })
+                    }
+                    OptionRow("Skip public holidays", "Default for new repeating alarms") {
+                        T24Switch(s.skipHolidaysDefault, { v -> AppSettings.update { it.copy(skipHolidaysDefault = v) } })
+                    }
+                    Text(
+                        "Next: " + Holidays.upcoming(LocalDate.now(), 3).joinToString(" · ") {
+                            "${it.second} ${it.first.format(DateTimeFormatter.ofPattern("d MMM"))}"
+                        },
+                        color = T24.Faint, fontSize = 12.sp
+                    )
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Backup")
+                    Text(
+                        "Save alarms, timers, cities, settings and history to a file — handy for a new phone.",
+                        color = T24.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp)
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        PillButton("Export", Modifier.weight(1f)) {
+                            exportLauncher.launch("twenty4hours-backup-${LocalDate.now()}.json")
+                        }
+                        PillButton("Restore", Modifier.weight(1f)) {
+                            importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                        }
+                    }
+
+                    Spacer(Modifier.height(22.dp))
+                    SectionTitle("Voice & shortcuts")
+                    Text(
+                        "Say “Hey Google, set an alarm for 6:15” or “set a 10 minute timer” and pick Twenty4Hours. " +
+                            "Add the Nap and Focus tiles from your Quick Settings edit screen, and the four home-screen widgets from Widgets.",
+                        color = T24.Muted, fontSize = 13.sp
+                    )
 
                     Spacer(Modifier.height(22.dp))
                     SectionTitle("Test")

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
+
+    <LinearLayout android:id="@+id/w_cell1" android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:gravity="center_horizontal" android:orientation="vertical">
+        <TextClock android:id="@+id/w_clock1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:format12Hour="HH:mm" android:format24Hour="HH:mm" android:fontFamily="sans-serif-light"
+            android:textColor="#FFEDEAE6" android:textSize="24sp" />
+        <TextView android:id="@+id/w_city1" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:ellipsize="end" android:maxLines="1" android:textColor="#FF8C8681" android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/w_cell2" android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:gravity="center_horizontal" android:orientation="vertical">
+        <TextClock android:id="@+id/w_clock2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:format12Hour="HH:mm" android:format24Hour="HH:mm" android:fontFamily="sans-serif-light"
+            android:textColor="#FFEDEAE6" android:textSize="24sp" />
+        <TextView android:id="@+id/w_city2" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:ellipsize="end" android:maxLines="1" android:textColor="#FF8C8681" android:textSize="12sp" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/w_cell3" android:layout_width="0dp" android:layout_height="wrap_content"
+        android:layout_weight="1" android:gravity="center_horizontal" android:orientation="vertical">
+        <TextClock android:id="@+id/w_clock3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:format12Hour="HH:mm" android:format24Hour="HH:mm" android:fontFamily="sans-serif-light"
+            android:textColor="#FFEDEAE6" android:textSize="24sp" />
+        <TextView android:id="@+id/w_city3" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:ellipsize="end" android:maxLines="1" android:textColor="#FF8C8681" android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

@@ -126,6 +126,7 @@ object Notifier {
     }
 
     fun refreshTimer(ctx: Context) {
+        com.bigoke.twenty4hours.widget.WidgetUpdater.updateTimers(ctx)
         val now = System.currentTimeMillis()
         val running = TimerStore.timers.value.filter { it.state == TimerState.RUNNING && it.endAt > now }
             .sortedBy { it.endAt }

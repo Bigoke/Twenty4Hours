@@ -204,6 +204,7 @@ object WorldStore {
         val a = JSONArray(); l.forEach { a.put(it) }
         Prefs.sp.edit().putString("world_zones", a.toString()).apply()
         _zones.value = l
+        Stores.onWorldChanged?.invoke()
     }
 
     fun add(zone: String) { if (zone !in _zones.value) save(_zones.value + zone) }
