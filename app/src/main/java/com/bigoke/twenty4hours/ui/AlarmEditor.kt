@@ -68,6 +68,7 @@ import com.bigoke.twenty4hours.data.Challenge
 import com.bigoke.twenty4hours.data.Holidays
 import com.bigoke.twenty4hours.data.RepeatMode
 import com.bigoke.twenty4hours.data.Role
+import com.bigoke.twenty4hours.data.VoiceStyle
 import com.bigoke.twenty4hours.data.formatCountdown
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -144,6 +145,8 @@ fun AlarmEditorBody(
     var sunrise by remember { mutableStateOf(initial.sunrise) }
     var summary by remember { mutableStateOf(initial.morningSummary) }
     var robot by remember { mutableStateOf(initial.robotVoice) }
+    var robotStyle by remember { mutableStateOf(initial.robotStyle) }
+    var robotLevel by remember { mutableIntStateOf(initial.robotLevel) }
     // Preview engine for the robot voice, created on first use
     var voice by remember { mutableStateOf<RobotVoice?>(null) }
     var previewing by remember { mutableStateOf(false) }
@@ -185,6 +188,8 @@ fun AlarmEditorBody(
             sunrise = !isRem && sunrise,
             morningSummary = !isRem && summary,
             robotVoice = !isRem && robot,
+            robotStyle = robotStyle,
+            robotLevel = robotLevel,
         )
     }
 
@@ -415,16 +420,33 @@ fun AlarmEditorBody(
                         T24Switch(robot, { robot = it })
                     }
                     AnimatedVisibility(robot) {
+                      Column {
+                        Text("Style", color = T24.Muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp))
+                        ChoiceRow(VoiceStyle.values().toList(), robotStyle, { it.title }) { robotStyle = it }
+                        Text(
+                            when (robotStyle) {
+                                VoiceStyle.DROID -> "Small and chirpy, with beeps between words."
+                                VoiceStyle.CLASSIC -> "Deep sci-fi robot with a metallic ring."
+                                VoiceStyle.VOCODER -> "Smooth synth voice, like electronic music."
+                            },
+                            color = T24.Faint, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)
+                        )
+                        Text("Strength", color = T24.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
+                        ChoiceRow(listOf(35, 60, 85), robotLevel, {
+                            when (it) { 35 -> "Subtle"; 60 -> "Medium"; else -> "Strong" }
+                        }) { robotLevel = it }
+                        Spacer(Modifier.height(12.dp))
                         PillButton(if (previewing) "Rendering…" else "Hear it", height = 44.dp, enabled = !previewing) {
                             val v = voice ?: RobotVoice(ctx).also { voice = it }
                             previewing = true
                             val text = (label.trim().ifBlank { "Alarm" }) + ". It's ${time.hour}:${"%02d".format(time.minute)}."
-                            v.render(text) { clip ->
+                            v.render(text, robotStyle, robotLevel / 100f) { clip ->
                                 previewing = false
                                 if (clip != null) v.play(clip, alarm = false)
                                 else android.widget.Toast.makeText(ctx, "Text-to-speech isn't available on this phone", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
+                      }
                     }
 
                     Spacer(Modifier.height(18.dp))

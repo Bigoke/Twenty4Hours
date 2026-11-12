@@ -16,6 +16,9 @@ enum class Challenge(val title: String) {
     NONE("None"), MATH("Math"), QR("Scan code"), SHAKE("Shake"), STEPS("Walk")
 }
 
+/** Robot voice styles (see RobotVoice). */
+enum class VoiceStyle(val title: String) { DROID("Droid"), CLASSIC("Classic robot"), VOCODER("Vocoder") }
+
 /** How an alarm repeats. WEEKLY with no days = once. */
 enum class RepeatMode { WEEKLY, EVERY_N, WEEK_AB, DATE }
 
@@ -63,6 +66,9 @@ data class Alarm(
     val role: Role = Role.NONE,
     /** Speak the label out loud in a robot voice while ringing. */
     val robotVoice: Boolean = false,
+    val robotStyle: VoiceStyle = VoiceStyle.DROID,
+    /** effect strength 0–100 */
+    val robotLevel: Int = 60,
 ) {
     val minuteOfDay: Int get() = hour * 60 + minute
     val repeating: Boolean
@@ -189,6 +195,8 @@ data class Alarm(
         qrCode?.let { put("qrCode", it) }
         put("role", role.name)
         put("robotVoice", robotVoice)
+        put("robotStyle", robotStyle.name)
+        put("robotLevel", robotLevel)
     }
 
     companion object {
@@ -229,6 +237,8 @@ data class Alarm(
                 qrCode = o.optString("qrCode", "").ifBlank { null },
                 role = runCatching { Role.valueOf(o.optString("role", "NONE")) }.getOrDefault(Role.NONE),
                 robotVoice = o.optBoolean("robotVoice", false),
+                robotStyle = runCatching { VoiceStyle.valueOf(o.optString("robotStyle", "DROID")) }.getOrDefault(VoiceStyle.DROID),
+                robotLevel = o.optInt("robotLevel", 60).coerceIn(0, 100),
             )
         }
     }

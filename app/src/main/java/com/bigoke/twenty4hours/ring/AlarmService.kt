@@ -28,6 +28,7 @@ import com.bigoke.twenty4hours.data.AlarmStore
 import com.bigoke.twenty4hours.data.AppSettings
 import com.bigoke.twenty4hours.data.Challenge
 import com.bigoke.twenty4hours.data.Stores
+import com.bigoke.twenty4hours.data.VoiceStyle
 import com.bigoke.twenty4hours.data.EventLog
 import com.bigoke.twenty4hours.data.EventType
 import com.bigoke.twenty4hours.data.LogEvent
@@ -57,6 +58,8 @@ data class RingInfo(
     val qrCode: String? = null,
     /** text spoken in the robot voice while ringing, if any */
     val speak: String? = null,
+    val voiceStyle: VoiceStyle = VoiceStyle.DROID,
+    val voiceLevel: Float = 0.6f,
 ) {
     val moreRings: Boolean get() = ringIndex + 1 < rings
 }
@@ -99,19 +102,29 @@ class AlarmService : Service() {
 
     // ---- robot voice: speaks the label between bursts of the alarm sound ----
     private var robot: RobotVoice? = null
+    private var voiceClip: RobotVoice.Clip? = null
+    private var voiceClipFor: String? = null
     private var ducked = false
     private val voiceLoop = object : Runnable {
         override fun run() {
             val info = RingState.current.value ?: return
             val text = info.speak ?: return
             val r = robot ?: RobotVoice(this@AlarmService).also { robot = it }
-            r.render(text) { clip ->
-                if (clip == null || RingState.current.value != info) return@render
+            val playIt: (RobotVoice.Clip) -> Unit = { clip ->
                 ducked = true
                 applyVolume()
                 r.play(clip, alarm = true)
                 handler.postDelayed({ ducked = false; applyVolume() }, clip.durationMs + 300)
                 handler.postDelayed(this, clip.durationMs + 18_000L)
+            }
+            val cached = voiceClip
+            val key = "$text|${info.voiceStyle}|${info.voiceLevel}"
+            if (cached != null && voiceClipFor == key) { playIt(cached); return }
+            r.render(text, info.voiceStyle, info.voiceLevel) { clip ->
+                if (clip == null || RingState.current.value != info) return@render
+                voiceClip = clip
+                voiceClipFor = key
+                playIt(clip)
             }
         }
     }
@@ -186,6 +199,7 @@ class AlarmService : Service() {
             snoozeMin = alarm.snoozeMin, baseTime = baseTime, challenge = alarm.challenge,
             rampMs = ramp, sunrise = alarm.sunrise, morningSummary = alarm.morningSummary, qrCode = alarm.qrCode,
             speak = if (alarm.robotVoice) "${alarm.displayLabel}. It's ${alarm.hour}:${"%02d".format(alarm.minute)}." else null,
+            voiceStyle = alarm.robotStyle, voiceLevel = alarm.robotLevel / 100f,
         )
         start(info, alarm.soundUri?.let { Uri.parse(it) }, alarm.vibrate, ramp)
 
