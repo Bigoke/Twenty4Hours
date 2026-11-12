@@ -1,11 +1,19 @@
 package com.bigoke.twenty4hours.ui
 
+import android.app.Activity
+import android.content.Intent
+import android.media.RingtoneManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +22,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,12 +46,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.IntentCompat
 import com.bigoke.twenty4hours.data.Alarm
+import com.bigoke.twenty4hours.data.AlarmKind
+import com.bigoke.twenty4hours.data.Challenge
+import com.bigoke.twenty4hours.data.formatCountdown
+import java.time.ZonedDateTime
+
+private val QUICK_LABELS = listOf("Wake up", "Go to bed", "Take medication", "Leave home", "Pick up kids", "Workout", "Meeting", "Lunch")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,14 +68,48 @@ fun AlarmEditor(
     isNew: Boolean,
     onSave: (Alarm) -> Unit,
     onDelete: () -> Unit,
+    onDuplicate: (Alarm) -> Unit,
+    onSkipToggle: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val ctx = LocalContext.current
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val time = rememberTimePickerState(initial.hour, initial.minute, is24Hour = true)
+    var kind by remember { mutableStateOf(initial.kind) }
     var label by remember { mutableStateOf(initial.label) }
     var days by remember { mutableStateOf(initial.days) }
     var rings by remember { mutableIntStateOf(initial.rings) }
     var interval by remember { mutableIntStateOf(initial.intervalMin) }
+    var snooze by remember { mutableIntStateOf(initial.snoozeMin) }
+    var soundUri by remember { mutableStateOf(initial.soundUri) }
+    var soundName by remember { mutableStateOf(initial.soundName) }
+    var vibrate by remember { mutableStateOf(initial.vibrate) }
+    var gradual by remember { mutableStateOf(initial.gradual) }
+    var challenge by remember { mutableStateOf(initial.challenge) }
+
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        if (res.resultCode == Activity.RESULT_OK) {
+            val uri = res.data?.let { IntentCompat.getParcelableExtra(it, RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java) }
+            if (uri == null || uri == Settings.System.DEFAULT_ALARM_ALERT_URI) {
+                soundUri = null; soundName = null
+            } else {
+                soundUri = uri.toString()
+                soundName = runCatching { RingtoneManager.getRingtone(ctx, uri)?.getTitle(ctx) }.getOrNull()
+            }
+        }
+    }
+
+    fun build(): Alarm = initial.copy(
+        hour = time.hour, minute = time.minute, label = label.trim(), days = days,
+        rings = if (kind == AlarmKind.REMINDER) 1 else rings, intervalMin = interval, snoozeMin = snooze,
+        kind = kind, soundUri = soundUri, soundName = soundName, vibrate = vibrate, gradual = gradual,
+        challenge = if (kind == AlarmKind.REMINDER) Challenge.NONE else challenge,
+        enabled = true,
+        skipUntil = if (time.hour != initial.hour || time.minute != initial.minute || days != initial.days) 0L else initial.skipUntil,
+    )
+
+    val preview = build()
+    val now = ZonedDateTime.now()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -69,171 +121,178 @@ fun AlarmEditor(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
                 .navigationBarsPadding()
         ) {
-            Text(
-                if (isNew) "New alarm" else "Edit alarm",
-                fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = T24.Text
-            )
-            Spacer(Modifier.height(16.dp))
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        if (isNew) (if (kind == AlarmKind.REMINDER) "New reminder" else "New alarm")
+                        else (if (kind == AlarmKind.REMINDER) "Edit reminder" else "Edit alarm"),
+                        fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = T24.Text,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "in " + formatCountdown(now, preview.nextTrigger(now)),
+                        color = T24.AmberLight, fontSize = 14.sp
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("Alarm", kind == AlarmKind.ALARM) { kind = AlarmKind.ALARM }
+                    Chip("Reminder", kind == AlarmKind.REMINDER) { kind = AlarmKind.REMINDER }
+                }
+                Text(
+                    if (kind == AlarmKind.REMINDER) "A single gentle notification sound — no ringing screen."
+                    else "Rings until you stop it, over the lock screen.",
+                    color = T24.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)
+                )
+                Spacer(Modifier.height(16.dp))
 
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                TimePicker(
-                    state = time,
-                    colors = TimePickerDefaults.colors(
-                        clockDialColor = T24.SurfaceHigh,
-                        clockDialSelectedContentColor = Color(0xFF1A0E02),
-                        clockDialUnselectedContentColor = T24.Text,
-                        selectorColor = T24.Amber,
-                        timeSelectorSelectedContainerColor = T24.Amber.copy(alpha = 0.22f),
-                        timeSelectorUnselectedContainerColor = T24.SurfaceHigh,
-                        timeSelectorSelectedContentColor = T24.AmberLight,
-                        timeSelectorUnselectedContentColor = T24.Text,
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    TimePicker(
+                        state = time,
+                        colors = TimePickerDefaults.colors(
+                            clockDialColor = T24.SurfaceHigh,
+                            clockDialSelectedContentColor = OnAmber,
+                            clockDialUnselectedContentColor = T24.Text,
+                            selectorColor = T24.Amber,
+                            timeSelectorSelectedContainerColor = T24.Amber.copy(alpha = 0.22f),
+                            timeSelectorUnselectedContainerColor = T24.SurfaceHigh,
+                            timeSelectorSelectedContentColor = T24.AmberLight,
+                            timeSelectorUnselectedContentColor = T24.Text,
+                        )
+                    )
+                }
+
+                OutlinedTextField(
+                    value = label,
+                    onValueChange = { label = it.take(40) },
+                    label = { Text("Label") },
+                    placeholder = { Text(if (kind == AlarmKind.REMINDER) "Take medication" else "Wake up") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = T24.Amber,
+                        unfocusedBorderColor = T24.Line,
+                        focusedLabelColor = T24.Amber,
+                        cursorColor = T24.Amber,
                     )
                 )
             }
-
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it.take(40) },
-                label = { Text("Label") },
-                placeholder = { Text("Wake up") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = T24.Amber,
-                    unfocusedBorderColor = T24.Line,
-                    focusedLabelColor = T24.Amber,
-                    cursorColor = T24.Amber,
-                )
-            )
-
-            Spacer(Modifier.height(22.dp))
-            SectionTitle("Repeat")
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf("M", "T", "W", "T", "F", "S", "S").forEachIndexed { i, d ->
-                    val day = i + 1
-                    val sel = day in days
-                    Box(
-                        Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(if (sel) T24.Amber else T24.SurfaceHigh)
-                            .clickable { days = if (sel) days - day else days + day },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(d, color = if (sel) Color(0xFF1A0E02) else T24.Text, fontWeight = FontWeight.Medium)
-                    }
-                }
+            Spacer(Modifier.height(10.dp))
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(QUICK_LABELS) { q -> Chip(q, label == q) { label = q } }
             }
-            Text(
-                if (days.isEmpty()) "Rings once" else Alarm(0, 0, 0, "", days = days).repeatText(),
-                color = T24.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)
-            )
 
-            Spacer(Modifier.height(22.dp))
-            SectionTitle("Rings")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                StepButton("−") { if (rings > 1) rings-- }
-                Text(
-                    "$rings", fontSize = 26.sp, fontWeight = FontWeight.Light,
-                    color = T24.Text, modifier = Modifier.width(56.dp),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-                StepButton("+") { if (rings < 10) rings++ }
-                Spacer(Modifier.width(16.dp))
-                Text(if (rings == 1) "ring" else "rings in a row", color = T24.Muted)
-            }
-            if (rings > 1) {
-                Spacer(Modifier.height(14.dp))
-                Text("Every", color = T24.Muted, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
+            Column(Modifier.padding(horizontal = 24.dp)) {
+                Spacer(Modifier.height(22.dp))
+                SectionTitle("Repeat")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(1, 3, 5, 10, 15).forEach { m ->
-                        Chip("$m min", interval == m) { interval = m }
+                    Chip("Once", days.isEmpty()) { days = emptySet() }
+                    Chip("Weekdays", days == setOf(1, 2, 3, 4, 5)) { days = setOf(1, 2, 3, 4, 5) }
+                    Chip("Weekends", days == setOf(6, 7)) { days = setOf(6, 7) }
+                    Chip("Daily", days.size == 7) { days = (1..7).toSet() }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    listOf("M", "T", "W", "T", "F", "S", "S").forEachIndexed { i, d ->
+                        val day = i + 1
+                        val sel = day in days
+                        Box(
+                            Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(if (sel) T24.Amber else T24.SurfaceHigh)
+                                .clickable { days = if (sel) days - day else days + day },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(d, color = if (sel) OnAmber else T24.Text, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
-            } else {
-                Spacer(Modifier.height(10.dp))
-                Text("Snooze length", color = T24.Muted, fontSize = 13.sp)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(5, 10, 15).forEach { m ->
-                        Chip("$m min", interval == m) { interval = m }
-                    }
-                }
-            }
 
-            Spacer(Modifier.height(28.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!isNew) {
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(56.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .border(1.dp, T24.Line, RoundedCornerShape(20.dp))
-                            .clickable(onClick = onDelete),
-                        contentAlignment = Alignment.Center
-                    ) { Text("Delete", color = T24.Muted, fontSize = 16.sp) }
-                }
-                Box(
-                    Modifier
-                        .weight(2f)
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Brush.verticalGradient(listOf(T24.AmberLight, T24.Amber)))
-                        .clickable {
-                            onSave(
-                                initial.copy(
-                                    hour = time.hour,
-                                    minute = time.minute,
-                                    label = label.trim(),
-                                    days = days,
-                                    rings = rings,
-                                    intervalMin = interval,
-                                    enabled = true,
-                                )
+                AnimatedVisibility(kind == AlarmKind.ALARM) {
+                    Column {
+                        Spacer(Modifier.height(22.dp))
+                        SectionTitle("Rings")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            StepButton("−") { if (rings > 1) rings-- }
+                            Text(
+                                "$rings", fontSize = 26.sp, fontWeight = FontWeight.Light,
+                                color = T24.Text, modifier = Modifier.width(56.dp), textAlign = TextAlign.Center
                             )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Save", color = Color(0xFF1A0E02), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                            StepButton("+") { if (rings < 10) rings++ }
+                            Spacer(Modifier.width(16.dp))
+                            Text(if (rings == 1) "ring" else "rings in a row", color = T24.Muted)
+                        }
+                        AnimatedVisibility(rings > 1) {
+                            Column {
+                                Spacer(Modifier.height(12.dp))
+                                Text("Gap between rings", color = T24.Muted, fontSize = 13.sp)
+                                Spacer(Modifier.height(8.dp))
+                                ChoiceRow(listOf(1, 3, 5, 10, 15), interval, { "$it min" }) { interval = it }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        Text("Snooze length", color = T24.Muted, fontSize = 13.sp)
+                        Spacer(Modifier.height(8.dp))
+                        ChoiceRow(listOf(5, 9, 10, 15, 20), snooze, { "$it min" }) { snooze = it }
+
+                        Spacer(Modifier.height(22.dp))
+                        SectionTitle("Sound & feel")
+                        OptionRow(
+                            "Sound", soundName ?: "Default alarm sound",
+                            onClick = {
+                                val i = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm sound")
+                                    putExtra(
+                                        RingtoneManager.EXTRA_RINGTONE_EXISTING_URI,
+                                        soundUri?.let { Uri.parse(it) } ?: Settings.System.DEFAULT_ALARM_ALERT_URI
+                                    )
+                                }
+                                runCatching { picker.launch(i) }
+                            }
+                        ) { Text("Change", color = T24.AmberLight, fontSize = 14.sp) }
+                        OptionRow("Vibrate", "Pulses along with the sound") { T24Switch(vibrate, { vibrate = it }) }
+                        OptionRow("Gentle start", "Volume rises slowly") { T24Switch(gradual, { gradual = it }) }
+                        OptionRow(
+                            "Math to stop",
+                            "Solve a sum before the alarm stops — keeps you awake"
+                        ) {
+                            T24Switch(challenge == Challenge.MATH, {
+                                challenge = if (it) Challenge.MATH else Challenge.NONE
+                            })
+                        }
+                    }
                 }
+
+                Spacer(Modifier.height(26.dp))
+                if (!isNew) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (initial.enabled) {
+                            PillButton(
+                                when {
+                                    initial.isSkipping(now) -> "Don't skip"
+                                    initial.repeating -> "Skip next"
+                                    else -> "Turn off"
+                                },
+                                Modifier.weight(1f), height = 46.dp, onClick = onSkipToggle
+                            )
+                        }
+                        PillButton("Duplicate", Modifier.weight(1f), height = 46.dp) { onDuplicate(build()) }
+                        PillButton("Delete", Modifier.weight(1f), height = 46.dp, onClick = onDelete)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+                PillButton("Save", Modifier.fillMaxWidth(), primary = true, height = 56.dp) { onSave(build()) }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
         }
-    }
-}
-
-@Composable
-private fun SectionTitle(t: String) {
-    Text(t.uppercase(), color = T24.Muted, fontSize = 11.sp, letterSpacing = 2.sp)
-    Spacer(Modifier.height(10.dp))
-}
-
-@Composable
-private fun StepButton(t: String, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(T24.SurfaceHigh)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) { Text(t, color = T24.Cream, fontSize = 22.sp) }
-}
-
-@Composable
-private fun Chip(t: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) T24.Amber else T24.SurfaceHigh)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp)
-    ) {
-        Text(t, color = if (selected) Color(0xFF1A0E02) else T24.Text, fontSize = 14.sp)
     }
 }

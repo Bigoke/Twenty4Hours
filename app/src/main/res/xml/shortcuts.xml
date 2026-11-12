@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_alarm"
+        android:shortcutId="new_alarm"
+        android:shortcutShortLabel="@string/sc_new_alarm">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.bigoke.twenty4hours.MainActivity"
+            android:targetPackage="com.bigoke.twenty4hours">
+            <extra android:name="tab" android:value="new_alarm" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_timer"
+        android:shortcutId="timer"
+        android:shortcutShortLabel="@string/sc_timer">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.bigoke.twenty4hours.MainActivity"
+            android:targetPackage="com.bigoke.twenty4hours">
+            <extra android:name="tab" android:value="timer" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_stopwatch"
+        android:shortcutId="stopwatch"
+        android:shortcutShortLabel="@string/sc_stopwatch">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="com.bigoke.twenty4hours.MainActivity"
+            android:targetPackage="com.bigoke.twenty4hours">
+            <extra android:name="tab" android:value="stopwatch" />
+        </intent>
+    </shortcut>
+</shortcuts>

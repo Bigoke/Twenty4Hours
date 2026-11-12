@@ -41,8 +41,15 @@ jobs:
       - name: Build release APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --stacktrace
+          set -o pipefail
+          ./gradlew assembleRelease 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk Twenty4Hours-v1.0.${{ github.run_number }}.apk
+
+      - name: Report compile errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -60 > errors.txt || true
+          while IFS= read -r line; do echo "::error::$line"; done < <(head -45 errors.txt)
 
       - uses: actions/upload-artifact@v4
         with:
