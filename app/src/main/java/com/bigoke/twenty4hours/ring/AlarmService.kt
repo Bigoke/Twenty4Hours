@@ -55,6 +55,8 @@ data class RingInfo(
     val sunrise: Boolean = false,
     val morningSummary: Boolean = false,
     val qrCode: String? = null,
+    /** text spoken in the robot voice while ringing, if any */
+    val speak: String? = null,
 ) {
     val moreRings: Boolean get() = ringIndex + 1 < rings
 }
@@ -94,14 +96,41 @@ class AlarmService : Service() {
     private var rampMs = 20_000L
 
     private val timeout = Runnable { silenceAndStop() }
+
+    // ---- robot voice: speaks the label between bursts of the alarm sound ----
+    private var robot: RobotVoice? = null
+    private var ducked = false
+    private val voiceLoop = object : Runnable {
+        override fun run() {
+            val info = RingState.current.value ?: return
+            val text = info.speak ?: return
+            val r = robot ?: RobotVoice(this@AlarmService).also { robot = it }
+            r.render(text) { clip ->
+                if (clip == null || RingState.current.value != info) return@render
+                ducked = true
+                applyVolume()
+                r.play(clip, alarm = true)
+                handler.postDelayed({ ducked = false; applyVolume() }, clip.durationMs + 300)
+                handler.postDelayed(this, clip.durationMs + 18_000L)
+            }
+        }
+    }
     private val ramp = object : Runnable {
         override fun run() {
             val p = player ?: return
-            val f = if (rampMs <= 0) 1f
-            else ((System.currentTimeMillis() - rampStart).toFloat() / rampMs).coerceIn(0.06f, 1f)
-            try { p.setVolume(f, f) } catch (_: Exception) {}
+            val f = rampLevel()
+            try { val v = if (ducked) f * 0.12f else f; p.setVolume(v, v) } catch (_: Exception) {}
             if (f < 1f) handler.postDelayed(this, 400)
         }
+    }
+
+    private fun rampLevel(): Float = if (rampMs <= 0) 1f
+        else ((System.currentTimeMillis() - rampStart).toFloat() / rampMs).coerceIn(0.06f, 1f)
+
+    private fun applyVolume() {
+        val f = rampLevel()
+        val v = if (ducked) f * 0.12f else f
+        try { player?.setVolume(v, v) } catch (_: Exception) {}
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -156,6 +185,7 @@ class AlarmService : Service() {
             ringIndex = ringIndex, rings = alarm.rings, intervalMin = alarm.intervalMin,
             snoozeMin = alarm.snoozeMin, baseTime = baseTime, challenge = alarm.challenge,
             rampMs = ramp, sunrise = alarm.sunrise, morningSummary = alarm.morningSummary, qrCode = alarm.qrCode,
+            speak = if (alarm.robotVoice) "${alarm.displayLabel}. It's ${alarm.hour}:${"%02d".format(alarm.minute)}." else null,
         )
         start(info, alarm.soundUri?.let { Uri.parse(it) }, alarm.vibrate, ramp)
 
@@ -186,6 +216,9 @@ class AlarmService : Service() {
         acquireWakeLock(ramp)
         rampMs = ramp
         startSound(sound)
+        ducked = false
+        handler.removeCallbacks(voiceLoop)
+        if (info.speak != null) handler.postDelayed(voiceLoop, 1_500L)
         // During a long smart-wake build-up, vibration waits until the sound is properly audible
         if (vibrate) {
             if (ramp > 60_000L) handler.postDelayed({ if (RingState.current.value == info) startVibration() }, ramp * 2 / 3)
@@ -245,6 +278,8 @@ class AlarmService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
+        robot?.release()
+        robot = null
         stopSoundAndVibration()
         RingState.current.value = null
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -311,6 +346,9 @@ class AlarmService : Service() {
 
     private fun stopSoundAndVibration() {
         handler.removeCallbacks(ramp)
+        handler.removeCallbacks(voiceLoop)
+        robot?.stop()
+        ducked = false
         try { player?.stop() } catch (_: Exception) {}
         player?.release()
         player = null

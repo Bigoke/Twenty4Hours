@@ -43,6 +43,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import com.bigoke.twenty4hours.ring.RobotVoice
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -141,6 +143,11 @@ fun AlarmEditorBody(
     var wakeWindow by remember { mutableIntStateOf(initial.wakeWindowMin) }
     var sunrise by remember { mutableStateOf(initial.sunrise) }
     var summary by remember { mutableStateOf(initial.morningSummary) }
+    var robot by remember { mutableStateOf(initial.robotVoice) }
+    // Preview engine for the robot voice, created on first use
+    var voice by remember { mutableStateOf<RobotVoice?>(null) }
+    var previewing by remember { mutableStateOf(false) }
+    DisposableEffect(Unit) { onDispose { voice?.release() } }
 
     var pickDateFor by remember { mutableStateOf<String?>(null) } // "date" or "anchor"
     var newGroup by remember { mutableStateOf(false) }
@@ -177,6 +184,7 @@ fun AlarmEditorBody(
             wakeWindowMin = if (isRem) 0 else wakeWindow,
             sunrise = !isRem && sunrise,
             morningSummary = !isRem && summary,
+            robotVoice = !isRem && robot,
         )
     }
 
@@ -403,6 +411,21 @@ fun AlarmEditorBody(
                     ) { Text("Change", color = T24.AmberLight, fontSize = 14.sp) }
                     OptionRow("Vibrate", "Pulses along with the sound") { T24Switch(vibrate, { vibrate = it }) }
                     OptionRow("Gentle start", "Volume rises slowly") { T24Switch(gradual, { gradual = it }) }
+                    OptionRow("Robot voice", "Says the label out loud in a droid voice while it rings") {
+                        T24Switch(robot, { robot = it })
+                    }
+                    AnimatedVisibility(robot) {
+                        PillButton(if (previewing) "Rendering…" else "Hear it", height = 44.dp, enabled = !previewing) {
+                            val v = voice ?: RobotVoice(ctx).also { voice = it }
+                            previewing = true
+                            val text = (label.trim().ifBlank { "Alarm" }) + ". It's ${time.hour}:${"%02d".format(time.minute)}."
+                            v.render(text) { clip ->
+                                previewing = false
+                                if (clip != null) v.play(clip, alarm = false)
+                                else android.widget.Toast.makeText(ctx, "Text-to-speech isn't available on this phone", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
 
                     Spacer(Modifier.height(18.dp))
                     SectionTitle("To stop it")

@@ -71,7 +71,7 @@ class ScreenshotTest {
             Alarm(5, 23, 0, "Go to bed", kind = AlarmKind.REMINDER, days = (1..7).toSet()),
             Alarm(6, 18, 15, "Gym", enabled = false, group = "Fitness"),
         ).forEach { AlarmStore.upsert(it) }
-        AlarmStore.upsert(AlarmStore.get(1)!!.copy(role = com.bigoke.twenty4hours.data.Role.WAKE, group = "Work", wakeWindowMin = 20))
+        AlarmStore.upsert(AlarmStore.get(1)!!.copy(role = com.bigoke.twenty4hours.data.Role.WAKE, group = "Work", wakeWindowMin = 20, robotVoice = true))
         AlarmStore.upsert(AlarmStore.get(3)!!.copy(group = "Work"))
         com.bigoke.twenty4hours.data.AppSettings.update { it.copy(lat = -29.12, lon = 26.21, placeName = "Bloemfontein") }
         val day = 86_400_000L

@@ -61,6 +61,8 @@ data class Alarm(
     val group: String = "",
     val qrCode: String? = null,
     val role: Role = Role.NONE,
+    /** Speak the label out loud in a robot voice while ringing. */
+    val robotVoice: Boolean = false,
 ) {
     val minuteOfDay: Int get() = hour * 60 + minute
     val repeating: Boolean
@@ -145,6 +147,7 @@ data class Alarm(
         if (isReminder) parts.add("reminder")
         else if (rings > 1) parts.add("$rings rings")
         if (challenge != Challenge.NONE && !isReminder) parts.add(challenge.title.lowercase())
+        if (robotVoice && !isReminder) parts.add("robot voice")
         if (group.isNotBlank()) parts.add(group)
         return parts.joinToString(" · ")
     }
@@ -185,6 +188,7 @@ data class Alarm(
         put("group", group)
         qrCode?.let { put("qrCode", it) }
         put("role", role.name)
+        put("robotVoice", robotVoice)
     }
 
     companion object {
@@ -224,6 +228,7 @@ data class Alarm(
                 group = o.optString("group", ""),
                 qrCode = o.optString("qrCode", "").ifBlank { null },
                 role = runCatching { Role.valueOf(o.optString("role", "NONE")) }.getOrDefault(Role.NONE),
+                robotVoice = o.optBoolean("robotVoice", false),
             )
         }
     }
