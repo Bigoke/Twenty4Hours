@@ -6,9 +6,18 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.bigoke.twenty4hours.data.Accent
+import com.bigoke.twenty4hours.data.AppSettings
 import androidx.compose.ui.graphics.Color
 
 object T24 {
+    /** Current accent; reading the colours below inside composition/drawing tracks it. */
+    var accent by mutableStateOf(Accent.AMBER)
+
     val Bg = Color(0xFF0E0D0C)
     val Surface = Color(0xFF171513)
     val SurfaceHigh = Color(0xFF211F1C)
@@ -18,9 +27,9 @@ object T24 {
     val Cream = Color(0xFFF2D9B0)
     val CreamLight = Color(0xFFFFF1D9)
     val CreamDark = Color(0xFFD9B98A)
-    val Amber = Color(0xFFFF8A1F)
-    val AmberLight = Color(0xFFFFB25E)
-    val AmberDark = Color(0xFFE56A0A)
+    val Amber: Color get() = Color(accent.main)
+    val AmberLight: Color get() = Color(accent.light)
+    val AmberDark: Color get() = Color(accent.dark)
     val Text = Color(0xFFEDEAE6)
     val Muted = Color(0xFF8C8681)
     val Faint = Color(0xFF5A5652)
@@ -28,6 +37,8 @@ object T24 {
 
 @Composable
 fun Twenty4Theme(content: @Composable () -> Unit) {
+    val settings by AppSettings.flow.collectAsState()
+    if (T24.accent != settings.accent) T24.accent = settings.accent
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = T24.Amber,

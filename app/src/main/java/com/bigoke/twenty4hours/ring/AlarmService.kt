@@ -28,6 +28,9 @@ import com.bigoke.twenty4hours.data.AlarmStore
 import com.bigoke.twenty4hours.data.AppSettings
 import com.bigoke.twenty4hours.data.Challenge
 import com.bigoke.twenty4hours.data.Stores
+import com.bigoke.twenty4hours.data.EventLog
+import com.bigoke.twenty4hours.data.EventType
+import com.bigoke.twenty4hours.data.LogEvent
 import com.bigoke.twenty4hours.data.TimerStore
 import com.bigoke.twenty4hours.data.formatHms
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +50,11 @@ data class RingInfo(
     val baseTime: Long = System.currentTimeMillis(),
     val challenge: Challenge = Challenge.NONE,
     val startedAt: Long = System.currentTimeMillis(),
+    /** how long the volume (and sunrise light) take to build up */
+    val rampMs: Long = 0L,
+    val sunrise: Boolean = false,
+    val morningSummary: Boolean = false,
+    val qrCode: String? = null,
 ) {
     val moreRings: Boolean get() = ringIndex + 1 < rings
 }
@@ -54,6 +62,8 @@ data class RingInfo(
 /** Shared between the service and the ring screen (same process). */
 object RingState {
     val current = MutableStateFlow<RingInfo?>(null)
+    /** Set after an alarm with a morning summary is stopped; the ring screen shows it, then clears it. */
+    val summary = MutableStateFlow<RingInfo?>(null)
 }
 
 class AlarmService : Service() {
@@ -120,18 +130,26 @@ class AlarmService : Service() {
 
     private fun ringAlarm(alarmId: Int, ringIndex: Int, baseTime: Long) {
         if (alarmId == TEST_ID) {
-            start(RingInfo(RingKind.TEST, TEST_ID, "Test alarm", nowText()), null, true, true)
+            start(RingInfo(RingKind.TEST, TEST_ID, "Test alarm", nowText()), null, true, AppSettings.value.gradualSec * 1000L)
             return
         }
         val alarm = AlarmStore.get(alarmId)
         if (alarm == null) { silenceAndStop(); return }
 
+        // Smart wake: when fired early, let the sound build up until the set time.
+        val untilSet = baseTime - System.currentTimeMillis()
+        val ramp = when {
+            ringIndex == 0 && alarm.wakeWindowMin > 0 && untilSet > 30_000L -> untilSet
+            alarm.gradual -> AppSettings.value.gradualSec * 1000L
+            else -> 0L
+        }
         val info = RingInfo(
             kind = RingKind.ALARM, id = alarm.id, label = alarm.displayLabel, timeText = alarm.timeText,
             ringIndex = ringIndex, rings = alarm.rings, intervalMin = alarm.intervalMin,
             snoozeMin = alarm.snoozeMin, baseTime = baseTime, challenge = alarm.challenge,
+            rampMs = ramp, sunrise = alarm.sunrise, morningSummary = alarm.morningSummary, qrCode = alarm.qrCode,
         )
-        start(info, alarm.soundUri?.let { Uri.parse(it) }, alarm.vibrate, alarm.gradual)
+        start(info, alarm.soundUri?.let { Uri.parse(it) }, alarm.vibrate, ramp)
 
         if (ringIndex + 1 < alarm.rings) {
             val next = baseTime + (ringIndex + 1) * alarm.intervalMin * 60_000L
@@ -149,19 +167,24 @@ class AlarmService : Service() {
             timeText = formatHms(t.durationMs), snoozeMin = 1,
         )
         TimerOps.finished(this, timerId)
-        start(info, null, true, false)
+        start(info, null, true, 0L)
     }
 
-    private fun start(info: RingInfo, sound: Uri?, vibrate: Boolean, gradual: Boolean) {
+    private fun start(info: RingInfo, sound: Uri?, vibrate: Boolean, ramp: Long) {
         stopSoundAndVibration()
+        RingState.summary.value = null
         RingState.current.value = info
         goForeground(buildNotification(info))
-        acquireWakeLock()
-        rampMs = if (gradual) AppSettings.value.gradualSec * 1000L else 0L
+        acquireWakeLock(ramp)
+        rampMs = ramp
         startSound(sound)
-        if (vibrate) startVibration()
+        // During a long smart-wake build-up, vibration waits until the sound is properly audible
+        if (vibrate) {
+            if (ramp > 60_000L) handler.postDelayed({ if (RingState.current.value == info) startVibration() }, ramp * 2 / 3)
+            else startVibration()
+        }
         handler.removeCallbacks(timeout)
-        handler.postDelayed(timeout, AppSettings.value.ringTimeoutMin * 60_000L)
+        handler.postDelayed(timeout, ramp + AppSettings.value.ringTimeoutMin * 60_000L)
         try {
             startActivity(RingActivity.intent(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {}
@@ -170,6 +193,9 @@ class AlarmService : Service() {
     private fun snooze() {
         val info = RingState.current.value
         if (info != null) {
+            if (info.kind == RingKind.ALARM) {
+                EventLog.add(LogEvent(EventType.SNOOZE, System.currentTimeMillis(), info.id, info.baseTime, info.label))
+            }
             if (info.kind == RingKind.ALARM && !info.moreRings) {
                 val at = System.currentTimeMillis() + info.snoozeMin * 60_000L
                 AlarmScheduler.scheduleRing(this, info.id, info.rings - 1, at, at)
@@ -182,7 +208,11 @@ class AlarmService : Service() {
 
     private fun stopCycle() {
         val info = RingState.current.value
-        if (info?.kind == RingKind.ALARM) AlarmScheduler.finishCycle(this, info.id)
+        if (info?.kind == RingKind.ALARM) {
+            EventLog.add(LogEvent(EventType.STOP, System.currentTimeMillis(), info.id, info.baseTime, info.label))
+            AlarmScheduler.finishCycle(this, info.id)
+        }
+        if (info != null && info.morningSummary) RingState.summary.value = info
         silenceAndStop()
     }
 
@@ -270,12 +300,12 @@ class AlarmService : Service() {
         try { vibrator?.cancel() } catch (_: Exception) {}
     }
 
-    private fun acquireWakeLock() {
-        if (wakeLock?.isHeld == true) return
+    private fun acquireWakeLock(extraMs: Long = 0L) {
+        wakeLock?.let { if (it.isHeld) it.release() }
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Twenty4Hours:ring").apply {
             setReferenceCounted(false)
-            acquire(AppSettings.value.ringTimeoutMin * 60_000L + 10_000L)
+            acquire(extraMs + AppSettings.value.ringTimeoutMin * 60_000L + 10_000L)
         }
     }
 

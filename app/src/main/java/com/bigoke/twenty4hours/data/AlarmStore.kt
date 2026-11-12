@@ -39,6 +39,9 @@ object Stores {
         TimerStore.load()
         StopwatchStore.load()
         WorldStore.load()
+        EventLog.load()
+        PresetStore.load()
+        SessionStore.load()
     }
 }
 
@@ -111,9 +114,34 @@ data class Settings(
     val ringTimeoutMin: Int = 5,
     val upcomingLeadMin: Int = 60,
     val volumeButtons: VolumeAction = VolumeAction.SNOOZE,
-)
+    /** Holiday mode: no alarm rings before this time (epoch millis). 0 = off. */
+    val pausedUntil: Long = 0L,
+    /** Alarm groups that are switched off. */
+    val pausedGroups: Set<String> = emptySet(),
+    val accent: Accent = Accent.AMBER,
+    /** Where sun times and weather come from. */
+    val useDeviceLocation: Boolean = true,
+    val lat: Double = Double.NaN,
+    val lon: Double = Double.NaN,
+    val placeName: String = "",
+    val calendarOnDial: Boolean = false,
+    val sunOnDial: Boolean = true,
+    val readSummaryAloud: Boolean = false,
+    val skipHolidaysDefault: Boolean = false,
+) {
+    val hasPlace: Boolean get() = !lat.isNaN() && !lon.isNaN()
+}
 
 enum class VolumeAction { NOTHING, SNOOZE, STOP }
+
+/** Accent colours (ARGB) — main, light, dark. */
+enum class Accent(val title: String, val main: Long, val light: Long, val dark: Long) {
+    AMBER("Amber", 0xFFFF8A1F, 0xFFFFB25E, 0xFFE56A0A),
+    MINT("Mint", 0xFF2FC79A, 0xFF7FE3C3, 0xFF14936F),
+    ICE("Ice", 0xFF4AA8FF, 0xFF93CBFF, 0xFF1E74C9),
+    ROSE("Rose", 0xFFFF5C8A, 0xFFFF9AB6, 0xFFD13466),
+    VIOLET("Violet", 0xFF9C7BFF, 0xFFC4B1FF, 0xFF6E4CE0),
+}
 
 object AppSettings {
     private val _s = MutableStateFlow(Settings())
@@ -132,6 +160,17 @@ object AppSettings {
             upcomingLeadMin = sp.getInt("s_upcoming", 60),
             volumeButtons = runCatching { VolumeAction.valueOf(sp.getString("s_volume", "SNOOZE")!!) }
                 .getOrDefault(VolumeAction.SNOOZE),
+            pausedUntil = sp.getLong("s_paused_until", 0L),
+            pausedGroups = sp.getStringSet("s_paused_groups", emptySet())?.toSet() ?: emptySet(),
+            accent = runCatching { Accent.valueOf(sp.getString("s_accent", "AMBER")!!) }.getOrDefault(Accent.AMBER),
+            useDeviceLocation = sp.getBoolean("s_use_loc", true),
+            lat = sp.getFloat("s_lat", Float.NaN).toDouble(),
+            lon = sp.getFloat("s_lon", Float.NaN).toDouble(),
+            placeName = sp.getString("s_place", "") ?: "",
+            calendarOnDial = sp.getBoolean("s_cal", false),
+            sunOnDial = sp.getBoolean("s_sun", true),
+            readSummaryAloud = sp.getBoolean("s_read", false),
+            skipHolidaysDefault = sp.getBoolean("s_skiphol", false),
         )
     }
 
@@ -146,6 +185,17 @@ object AppSettings {
             .putInt("s_timeout", n.ringTimeoutMin)
             .putInt("s_upcoming", n.upcomingLeadMin)
             .putString("s_volume", n.volumeButtons.name)
+            .putLong("s_paused_until", n.pausedUntil)
+            .putStringSet("s_paused_groups", n.pausedGroups)
+            .putString("s_accent", n.accent.name)
+            .putBoolean("s_use_loc", n.useDeviceLocation)
+            .putFloat("s_lat", n.lat.toFloat())
+            .putFloat("s_lon", n.lon.toFloat())
+            .putString("s_place", n.placeName)
+            .putBoolean("s_cal", n.calendarOnDial)
+            .putBoolean("s_sun", n.sunOnDial)
+            .putBoolean("s_read", n.readSummaryAloud)
+            .putBoolean("s_skiphol", n.skipHolidaysDefault)
             .apply()
         _s.value = n
     }

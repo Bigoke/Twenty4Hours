@@ -102,10 +102,19 @@ object AlarmScheduler {
     /** Schedule (or cancel, if disabled) the next occurrence of [alarm]. */
     fun schedule(ctx: Context, alarm: Alarm) {
         cancel(ctx, alarm.id)
-        if (!alarm.enabled) return
-        val t = alarm.nextTrigger(ZonedDateTime.now()).toInstant().toEpochMilli()
-        scheduleRing(ctx, alarm.id, 0, t, t)
-        scheduleUpcoming(ctx, alarm, t)
+        if (!alarm.active) return
+        val next = alarm.nextTriggerOrNull(ZonedDateTime.now())
+        if (next == null) {
+            // A one-time date that has passed: switch it off.
+            if (!alarm.repeating && alarm.enabled) AlarmStore.upsert(alarm.copy(enabled = false))
+            return
+        }
+        val t = next.toInstant().toEpochMilli()
+        // Smart wake: start softly before the set time, unless that moment has already passed.
+        val early = t - alarm.wakeWindowMin * 60_000L
+        val fireAt = if (!alarm.isReminder && alarm.wakeWindowMin > 0 && early > System.currentTimeMillis() + 5_000L) early else t
+        scheduleRing(ctx, alarm.id, 0, t, fireAt)
+        scheduleUpcoming(ctx, alarm, fireAt)
     }
 
     /** Schedule a specific ring of an alarm cycle. */
@@ -133,7 +142,9 @@ object AlarmScheduler {
         Stores.init(ctx)
         val alarm = AlarmStore.get(alarmId) ?: run { cancel(ctx, alarmId); return }
         if (alarm.repeating && alarm.enabled) {
-            schedule(ctx, alarm)
+            // Drop a "skip next" that has now been used up
+            val a = if (alarm.skipUntil in 1 until System.currentTimeMillis()) alarm.copy(skipUntil = 0L).also { AlarmStore.upsert(it) } else alarm
+            schedule(ctx, a)
         } else {
             cancel(ctx, alarmId)
             if (alarm.enabled) AlarmStore.upsert(alarm.copy(enabled = false))

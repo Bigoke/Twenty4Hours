@@ -76,6 +76,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
     // Screenshot tests (render every screen on the JVM to check layout)
     testImplementation(composeBom)

@@ -20,6 +20,14 @@ class AlarmReceiver : BroadcastReceiver() {
             Notifier.cancelUpcoming(context, id)
             if (alarm != null && alarm.isReminder) {
                 Notifier.showReminder(context, alarm)
+                if (alarm.isBedtime) {
+                    com.bigoke.twenty4hours.data.EventLog.add(
+                        com.bigoke.twenty4hours.data.LogEvent(
+                            com.bigoke.twenty4hours.data.EventType.BEDTIME, System.currentTimeMillis(), alarm.id,
+                            System.currentTimeMillis(), alarm.displayLabel
+                        )
+                    )
+                }
                 AlarmScheduler.finishCycle(context, id)
                 return
             }

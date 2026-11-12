@@ -59,6 +59,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -111,13 +114,19 @@ class RingActivity : ComponentActivity() {
         setContent {
             Twenty4Theme {
                 val info by RingState.current.collectAsState()
-                LaunchedEffect(info) { if (info == null) finish() }
-                info?.let {
-                    RingScreen(
-                        info = it,
+                val summary by RingState.summary.collectAsState()
+                LaunchedEffect(info, summary) { if (info == null && summary == null) finish() }
+                val i = info
+                val sum = summary
+                when {
+                    i != null -> RingScreen(
+                        info = i,
                         onSnooze = { AlarmService.send(this, AlarmService.ACTION_SNOOZE) },
                         onStop = { AlarmService.send(this, AlarmService.ACTION_STOP) },
                     )
+                    sum != null -> Box(Modifier.fillMaxSize().background(T24.Bg).safeDrawingPadding()) {
+                        MorningSummary(sum, onDone = { RingState.summary.value = null })
+                    }
                 }
             }
         }
@@ -150,7 +159,24 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
         animationSpec = infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "glow"
     )
-    var solving by remember { mutableStateOf(false) }
+    var challengeOpen by remember { mutableStateOf<Challenge?>(null) }
+    val activity = LocalContext.current as? android.app.Activity
+
+    // Sunrise: the screen warms up and brightens over the build-up time
+    val sunriseMs = if (info.sunrise) maxOf(info.rampMs, 90_000L) else 0L
+    var dawn by remember { mutableStateOf(if (info.sunrise) 0f else 1f) }
+    LaunchedEffect(info.startedAt, info.sunrise) {
+        if (!info.sunrise) return@LaunchedEffect
+        while (dawn < 1f) {
+            dawn = ((System.currentTimeMillis() - info.startedAt).toFloat() / sunriseMs).coerceIn(0f, 1f)
+            activity?.window?.let { w ->
+                val lp = w.attributes
+                lp.screenBrightness = 0.04f + 0.96f * dawn
+                w.attributes = lp
+            }
+            delay(500)
+        }
+    }
 
     val isTimer = info.kind == RingKind.TIMER
     val snoozeText = when {
@@ -162,12 +188,26 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.radialGradient(listOf(Color(0xFF2A1C0E), T24.Bg), radius = 1500f))
+            .background(
+                if (info.sunrise) Brush.verticalGradient(
+                    listOf(
+                        lerp(Color(0xFF07070A), Color(0xFF3B2410), dawn),
+                        lerp(Color(0xFF0B0907), T24.AmberDark.copy(alpha = 0.55f).compositeOver(Color(0xFF1E140A)), dawn),
+                        lerp(Color(0xFF0B0907), T24.Amber.copy(alpha = 0.75f).compositeOver(Color(0xFF2A1A0B)), dawn),
+                    )
+                ) else Brush.radialGradient(listOf(Color(0xFF2A1C0E), T24.Bg), radius = 1500f)
+            )
             .safeDrawingPadding()
     ) {
-        AnimatedContent(solving, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "mode") { s ->
-            if (s) {
-                MathChallenge(onSolved = onStop, onCancel = { solving = false })
+        AnimatedContent(challengeOpen, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "mode") { ch ->
+            if (ch != null && ch != Challenge.NONE) {
+                when (ch) {
+                    Challenge.QR -> QrChallenge(info.qrCode, onDone = onStop, onCancel = { challengeOpen = null },
+                        onFallback = { challengeOpen = Challenge.MATH })
+                    Challenge.SHAKE -> ShakeChallenge(onDone = onStop, onCancel = { challengeOpen = null })
+                    Challenge.STEPS -> StepsChallenge(onDone = onStop, onCancel = { challengeOpen = null })
+                    else -> MathChallenge(onSolved = onStop, onCancel = { challengeOpen = null })
+                }
             } else {
                 Column(
                     Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 24.dp),
@@ -215,9 +255,15 @@ internal fun RingScreen(info: RingInfo, onSnooze: () -> Unit, onStop: () -> Unit
 
                     SlideToAct(
                         leftText = snoozeText,
-                        rightText = if (info.challenge == Challenge.MATH) "Solve to stop" else "Stop",
+                        rightText = when (info.challenge) {
+                            Challenge.NONE -> "Stop"
+                            Challenge.MATH -> "Solve to stop"
+                            Challenge.QR -> "Scan to stop"
+                            Challenge.SHAKE -> "Shake to stop"
+                            Challenge.STEPS -> "Walk to stop"
+                        },
                         onLeft = onSnooze,
-                        onRight = { if (info.challenge == Challenge.MATH) solving = true else onStop() },
+                        onRight = { if (info.challenge != Challenge.NONE) challengeOpen = info.challenge else onStop() },
                     )
                     Spacer(Modifier.height(14.dp))
                     Text("Slide the puck · volume keys ${
