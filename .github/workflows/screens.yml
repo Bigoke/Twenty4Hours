@@ -5,6 +5,9 @@ on:
     branches: ['**']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   screens:
     runs-on: ubuntu-latest
@@ -32,6 +35,21 @@ jobs:
             grep -A4 "<failure" "$f" | head -12 >> errors.txt || true
           done
           while IFS= read -r line; do echo "::error::$line"; done < <(head -45 errors.txt)
+
+      - name: Publish screenshots to the screens branch
+        if: always()
+        run: |
+          ls app/build/screens/*.png >/dev/null 2>&1 || exit 0
+          mkdir -p /tmp/out && cp app/build/screens/*.png /tmp/out/
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          git checkout --orphan screens-out
+          git rm -rfq --cached .
+          rm -rf ./*
+          cp /tmp/out/*.png .
+          git add -f *.png
+          git commit -qm "screens for ${{ github.sha }}"
+          git push -qf origin HEAD:refs/heads/screens
 
       - uses: actions/upload-artifact@v4
         if: always()
